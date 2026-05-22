@@ -17,7 +17,7 @@ struct TodoRowView: View {
     @State private var isHovering = false
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(alignment: .top, spacing: 6) {
             // Checkbox
             Button(action: {
                 withAnimation(.easeInOut(duration: 0.2)) {

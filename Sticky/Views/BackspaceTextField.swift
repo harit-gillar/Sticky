@@ -6,6 +6,17 @@ import AppKit
 class TaskTextField: NSTextField {
     var onCmdReturn: (() -> Void)?
 
+    // Keep the wrap width in sync with the actual laid-out width, so the field
+    // reports a correct multi-line intrinsic height and SwiftUI gives it room
+    // (otherwise long lines clip on a single line).
+    override func layout() {
+        super.layout()
+        if abs(preferredMaxLayoutWidth - bounds.width) > 0.5 {
+            preferredMaxLayoutWidth = bounds.width
+            invalidateIntrinsicContentSize()
+        }
+    }
+
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         // keyCode 36 = Return/Enter
         if event.keyCode == 36,
@@ -48,7 +59,9 @@ struct BackspaceTextField: NSViewRepresentable {
         textField.isBordered = false
         textField.drawsBackground = false
         textField.focusRingType = .none
-        textField.lineBreakMode = .byWordWrapping
+        // Char wrapping so long unbroken tokens (e.g. URLs) wrap instead of
+        // clipping off the right edge when the window is narrow.
+        textField.lineBreakMode = .byCharWrapping
         textField.cell?.wraps = true
         textField.cell?.isScrollable = false
         textField.maximumNumberOfLines = 0
@@ -85,6 +98,24 @@ struct BackspaceTextField: NSViewRepresentable {
         if currentToken == nil {
             context.coordinator.lastProcessedFocusToken = nil
         }
+    }
+
+    /// Tell SwiftUI the wrapped height for the proposed width, so the row grows
+    /// to fit multi-line / long-URL text instead of clipping it on one line.
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: TaskTextField, context: Context) -> CGSize? {
+        guard let width = proposal.width, width.isFinite, width > 1 else { return nil }
+        let measured = text.isEmpty ? " " : text
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.lineBreakMode = .byCharWrapping
+        let attributed = NSAttributedString(
+            string: measured,
+            attributes: [.font: font, .paragraphStyle: paragraph]
+        )
+        let bounding = attributed.boundingRect(
+            with: NSSize(width: width, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading]
+        )
+        return CGSize(width: width, height: max(ceil(bounding.height), 18))
     }
 
     func makeCoordinator() -> Coordinator {

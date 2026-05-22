@@ -4,48 +4,100 @@ struct TodoListView: View {
     @Binding var sticky: StickyNote
     let colorScheme: ColorScheme
     let onTaskCompleted: (UUID) -> Void
+    /// Reports (full content height, visible viewport height) so the parent can
+    /// fit-to-content resize the window.
+    var onMetrics: ((CGFloat, CGFloat) -> Void)? = nil
 
     @State private var focusToken: UUID?
+    @State private var contentHeight: CGFloat = 0
+    @State private var scrollOffset: CGFloat = 0
+
+    private var fadeColor: Color {
+        sticky.colorTheme.backgroundColor(for: colorScheme)
+    }
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                VStack(spacing: 0) {
-                    ForEach($sticky.tasks) { $task in
-                        TodoRowView(
-                            task: $task,
-                            colorTheme: sticky.colorTheme,
-                            colorScheme: colorScheme,
-                            onToggle: { taskID in
-                                toggleTask(taskID)
-                            },
-                            onDelete: { taskID in
-                                deleteAndFocusPrevious(taskID, proxy: proxy)
-                            },
-                            onSubmit: {
-                                addNewTaskAfter(task.id, proxy: proxy)
-                            },
-                            onCmdEnter: {
-                                toggleTask(task.id)
-                            },
-                            onBackspaceEmpty: {
-                                deleteAndFocusPrevious(task.id, proxy: proxy)
-                            },
-                            onMoveUp: {
-                                focusPreviousTask(from: task.id, proxy: proxy)
-                            },
-                            onMoveDown: {
-                                focusNextTask(from: task.id, proxy: proxy)
-                            },
-                            focusToken: focusToken,
-                            onFocusGranted: {
-                                // Clear the token so it doesn't re-fire on every SwiftUI update
-                                focusToken = nil
-                            }
-                        )
-                        .id(task.id)
+        GeometryReader { outer in
+            let viewport = outer.size.height
+            let canScrollUp = scrollOffset > 4
+            let canScrollDown = contentHeight - scrollOffset - viewport > 4
+
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(spacing: 0) {
+                        ForEach($sticky.tasks) { $task in
+                            TodoRowView(
+                                task: $task,
+                                colorTheme: sticky.colorTheme,
+                                colorScheme: colorScheme,
+                                onToggle: { taskID in
+                                    toggleTask(taskID)
+                                },
+                                onDelete: { taskID in
+                                    deleteAndFocusPrevious(taskID, proxy: proxy)
+                                },
+                                onSubmit: {
+                                    addNewTaskAfter(task.id, proxy: proxy)
+                                },
+                                onCmdEnter: {
+                                    toggleTask(task.id)
+                                },
+                                onBackspaceEmpty: {
+                                    deleteAndFocusPrevious(task.id, proxy: proxy)
+                                },
+                                onMoveUp: {
+                                    focusPreviousTask(from: task.id, proxy: proxy)
+                                },
+                                onMoveDown: {
+                                    focusNextTask(from: task.id, proxy: proxy)
+                                },
+                                focusToken: focusToken,
+                                onFocusGranted: {
+                                    // Clear the token so it doesn't re-fire on every SwiftUI update
+                                    focusToken = nil
+                                }
+                            )
+                            .id(task.id)
+                        }
                     }
+                    .background(
+                        GeometryReader { inner in
+                            Color.clear.preference(
+                                key: ScrollMetricsKey.self,
+                                value: ScrollMetrics(
+                                    contentHeight: inner.size.height,
+                                    offset: -inner.frame(in: .named("stickyScroll")).minY
+                                )
+                            )
+                        }
+                    )
                 }
+                .coordinateSpace(name: "stickyScroll")
+                .onPreferenceChange(ScrollMetricsKey.self) { metrics in
+                    contentHeight = metrics.contentHeight
+                    scrollOffset = metrics.offset
+                    onMetrics?(metrics.contentHeight, viewport)
+                }
+                .onChange(of: viewport) { _, h in
+                    onMetrics?(contentHeight, h)
+                }
+            }
+            // Fade hints: signal there's more content above / below the fold.
+            .overlay(alignment: .top) {
+                LinearGradient(colors: [fadeColor, fadeColor.opacity(0)],
+                               startPoint: .top, endPoint: .bottom)
+                    .frame(height: 20)
+                    .allowsHitTesting(false)
+                    .opacity(canScrollUp ? 1 : 0)
+                    .animation(.easeOut(duration: 0.15), value: canScrollUp)
+            }
+            .overlay(alignment: .bottom) {
+                LinearGradient(colors: [fadeColor.opacity(0), fadeColor],
+                               startPoint: .top, endPoint: .bottom)
+                    .frame(height: 24)
+                    .allowsHitTesting(false)
+                    .opacity(canScrollDown ? 1 : 0)
+                    .animation(.easeOut(duration: 0.15), value: canScrollDown)
             }
         }
     }
@@ -139,5 +191,19 @@ struct TodoListView: View {
                 proxy.scrollTo(taskID, anchor: anchor)
             }
         }
+    }
+}
+
+// MARK: - Scroll metrics
+
+private struct ScrollMetrics: Equatable {
+    var contentHeight: CGFloat = 0
+    var offset: CGFloat = 0
+}
+
+private struct ScrollMetricsKey: PreferenceKey {
+    static var defaultValue = ScrollMetrics()
+    static func reduce(value: inout ScrollMetrics, nextValue: () -> ScrollMetrics) {
+        value = nextValue()
     }
 }

@@ -9,6 +9,9 @@ struct StickyNoteView: View {
     @Environment(\.openWindow) private var openWindow
     @State private var showSettings = false
     @State private var stickyWindow: NSWindow?
+    @State private var listContentHeight: CGFloat = 0
+    @State private var listViewportHeight: CGFloat = 0
+    @State private var zoomCoordinator: WindowZoomCoordinator?
 
     private let minimizedHeight: CGFloat = 36
 
@@ -49,7 +52,11 @@ struct StickyNoteView: View {
                     TodoListView(
                         sticky: sticky,
                         colorScheme: colorScheme,
-                        onTaskCompleted: { taskID in handleTaskCompletion(taskID: taskID) }
+                        onTaskCompleted: { taskID in handleTaskCompletion(taskID: taskID) },
+                        onMetrics: { content, viewport in
+                            listContentHeight = content
+                            listViewportHeight = viewport
+                        }
                     )
                     Spacer(minLength: 0)
                 }
@@ -109,7 +116,37 @@ struct StickyNoteView: View {
             // (which has been observed to duplicate already-open windows).
             StickyWindowRegistry.shared.register(window, for: stickyID)
             startTrackingWindowPosition(window)
+            setUpZoomButton(window)
         })
+    }
+
+    // MARK: - Fit-to-content (green zoom button)
+
+    private func setUpZoomButton(_ window: NSWindow) {
+        guard let zoomButton = window.standardWindowButton(.zoomButton) else { return }
+        let coord = zoomCoordinator ?? WindowZoomCoordinator()
+        coord.onZoom = { fitWindowToContent() }
+        zoomButton.target = coord
+        zoomButton.action = #selector(WindowZoomCoordinator.handleZoom)
+        zoomCoordinator = coord
+    }
+
+    private func fitWindowToContent() {
+        guard let window = stickyWindow,
+              !sticky.wrappedValue.isMinimized,
+              listViewportHeight > 0, listContentHeight > 0 else { return }
+        // Growing or shrinking by the difference between content and viewport
+        // makes the window exactly fit all tasks with no scroll and no slack.
+        let delta = listContentHeight - listViewportHeight
+        guard abs(delta) > 1 else { return }
+
+        var frame = window.frame
+        let maxHeight = (window.screen ?? NSScreen.main)?.visibleFrame.height ?? 1200
+        let newHeight = min(max(frame.height + delta, 180), maxHeight)
+        let appliedDelta = newHeight - frame.height
+        frame.origin.y -= appliedDelta // keep the top edge anchored
+        frame.size.height = newHeight
+        window.setFrame(frame, display: true, animate: true)
     }
 
     // MARK: - Window Management
@@ -292,4 +329,12 @@ private struct WindowAccessor: NSViewRepresentable {
         return view
     }
     func updateNSView(_ nsView: NSView, context: Context) {}
+}
+
+// MARK: - Zoom button handler
+
+/// Retains an @objc target so the green zoom button can trigger fit-to-content.
+final class WindowZoomCoordinator: NSObject {
+    var onZoom: () -> Void = {}
+    @objc func handleZoom() { onZoom() }
 }
