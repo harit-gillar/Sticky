@@ -69,6 +69,9 @@ class StickyStore: ObservableObject {
                 "Drag the chevron to minimise",
                 "Try different confetti styles in Settings",
                 "Long tasks? Use Shift+Enter to wrap",
+                "Add from Raycast — search \"Sticky\"",
+                "Add from Alfred — type \"sticky <task>\"",
+                "Get the workflows at github.com/Harit556/Sticky",
             ], .preset(.blue)),
         ]
 
