@@ -178,12 +178,33 @@ final class StickyWindowRegistry {
         registry[id] = WeakBox(window)
     }
 
+    /// True if a live window for this id is currently open.
+    func isOpen(id: UUID) -> Bool {
+        registry = registry.filter { $0.value.window != nil }
+        return registry[id]?.window != nil
+    }
+
     /// Returns true if a live window for this id was raised. Cleans up nil
     /// entries as a side-effect.
     func raiseIfPresent(id: UUID) -> Bool {
         registry = registry.filter { $0.value.window != nil }
         guard let window = registry[id]?.window else { return false }
         window.makeKeyAndOrderFront(nil)
+        return true
+    }
+}
+
+/// Ensures the launch-time "open all stickies" routine runs only once per
+/// trigger increment. Multiple StickyNoteViews observe `openAllTrigger`; without
+/// this, each one would try to open every other sticky, duplicating windows.
+@MainActor
+final class OpenAllCoordinator {
+    static let shared = OpenAllCoordinator()
+    private var lastHandled = 0
+
+    func shouldHandle(_ trigger: Int) -> Bool {
+        guard trigger > lastHandled else { return false }
+        lastHandled = trigger
         return true
     }
 }

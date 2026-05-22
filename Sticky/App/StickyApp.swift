@@ -15,7 +15,10 @@ struct StickyApp: App {
                     guard let id = notif.userInfo?["stickyID"] as? UUID,
                           let nonce = notif.userInfo?["nonce"] as? UUID,
                           URLNotificationDeduper.shared.shouldProcess(nonce) else { return }
-                    openWindow(id: "sticky", value: id)
+                    // Raise if already open; only create a window when none exists.
+                    if !StickyWindowRegistry.shared.raiseIfPresent(id: id) {
+                        openWindow(id: "sticky", value: id)
+                    }
                 }
         }
         .windowStyle(.hiddenTitleBar)

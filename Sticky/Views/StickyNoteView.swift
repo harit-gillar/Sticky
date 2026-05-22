@@ -95,8 +95,12 @@ struct StickyNoteView: View {
         .onAppear {
             configureWindow()
         }
-        .onChange(of: store.openAllTrigger) { _, _ in
-            openRemainingStickies()
+        .onChange(of: store.openAllTrigger) { _, newValue in
+            // Only one observer handles each trigger increment — otherwise every
+            // open window would try to open all the others, duplicating windows.
+            if OpenAllCoordinator.shared.shouldHandle(newValue) {
+                openRemainingStickies()
+            }
         }
         .onChange(of: note.isAlwaysOnTop) { _, isOnTop in setWindowLevel(floating: isOnTop) }
         .background(WindowAccessor(window: $stickyWindow) { window in
@@ -138,7 +142,11 @@ struct StickyNoteView: View {
             let delay = 0.3 + Double(index) * 0.3
             let id = other.id
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                self.openWindow(id: "sticky", value: id)
+                // Skip stickies that are already open (e.g. restored by macOS),
+                // raising them instead. openWindow duplicates already-open values.
+                if !StickyWindowRegistry.shared.raiseIfPresent(id: id) {
+                    self.openWindow(id: "sticky", value: id)
+                }
             }
         }
     }
