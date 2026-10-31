@@ -1,6 +1,6 @@
 # Sticky — Alfred Workflow
 
-Add tasks to your [Sticky](https://github.com/Harit556/Sticky) notes from Alfred.
+Add tasks to your [Sticky](https://github.com/harit-gillar/Sticky) notes from Alfred.
 
 Requires Alfred 5 with the **Powerpack**.
 

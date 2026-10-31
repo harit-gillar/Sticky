@@ -1,6 +1,6 @@
 # Sticky
 
-A native macOS sticky note app that celebrates every time you tick something off. Built with Swift and SwiftUI.
+Sticky notes for your Mac desktop, each with its own to-do list. Tick something off and you get confetti. That's basically it.
 
 ![macOS](https://img.shields.io/badge/macOS-14.0+-blue) ![Swift](https://img.shields.io/badge/Swift-5.9-orange)
 
@@ -8,62 +8,69 @@ A native macOS sticky note app that celebrates every time you tick something off
 
 ## Download
 
-Grab the latest release from the [Releases](https://github.com/Harit556/Sticky/releases) page. Unzip and drag to Applications.
+Grab the latest build from [Releases](https://github.com/harit-gillar/Sticky/releases). Unzip it and drag **Sticky.app** into Applications.
 
-> First launch: right-click → Open to get past Gatekeeper (app is unsigned).
+> First launch: right-click → Open to get past Gatekeeper. The app isn't signed, so macOS will moan about it.
 
----
-
-## What it does
-
-Floating sticky notes that live on your desktop. Each one has its own to-do list. Tick something off and get a confetti explosion. That's basically it.
+The Raycast and Alfred integrations came after v1.1.3, so for those you'll need to [build from source](#building-from-source) for now.
 
 ---
 
 ## Features
 
 ### The basics
-- Multiple floating sticky windows — each with their own tasks and colour
-- Windows stay where you put them between launches
+- As many floating stickies as you want, each with its own tasks and colour
+- They stay exactly where you left them between launches
 - Right-click anywhere on a sticky to open its settings
-- `⌘N` to create a new sticky, `⇧⌘O` to open all of them side by side
-- `⌥⇧S` to hide or show all stickies from anywhere on your Mac
+- Duplicate a sticky from its settings menu
+- `⌘N` for a new sticky, `⇧⌘O` to lay them all out side by side
+- `⌥⇧S` to hide or show every sticky, from anywhere on your Mac
 
 ### Tasks
-- Press Enter to add a new task and immediately start the next one
-- Click the checkbox to complete (with strikethrough)
-- Backspace on an empty task to delete it
+- `Enter` adds a task and drops you straight into the next one
+- `⇧Enter` for a line break, for the longer to-dos
+- `⌘Enter` or the checkbox to tick it off
+- `Backspace` on an empty task deletes it
 - Drag to reorder
-- Option to auto-sort completed tasks to the bottom
+- Optionally sink finished tasks to the bottom
+- Long tasks wrap instead of getting cut off
 
 ### Minimise
-- Click the chevron next to the title to collapse a sticky to a slim 36px bar
-- Click it again to expand
+Click the chevron next to the title and the sticky shrinks to a slim 36px bar. Click it again to bring it back.
 
 ### Confetti
-5 styles to choose from:
-- **Classic** — streaming rectangles (the original)
-- **Burst** — everything explodes outward from one point
-- **Stars** — 5-pointed star shapes
-- **Emoji** — 🎉✨🌟💫 pop up, float, and fade
-- **Minimal** — 3–5 large slow-falling pieces, barely there
+Five styles:
+- **Classic** — streaming rectangles, the original
+- **Burst** — everything explodes out from one point
+- **Stars** — little five-pointed stars
+- **Emoji** — 🎉✨🌟💫 pop up, float, fade
+- **Minimal** — a few big pieces drifting down, barely there
 
-All styles respond to Size, Amount, Gravity, and Colour settings.
+Every style responds to the Size, Amount, Gravity and Colour settings. Amount goes up to **MAX**, which is 3,000+ pieces. It will lag. That's the point.
 
-### Sound effects
-- Confetti, Yay, Yippie, Cat Laugh, Apple Pay, Rizz, Click Nice
-- Import your own MP3
-- Or turn sound off entirely
+### Sounds
+Confetti, Yay, Yippie, Cat Laugh, Apple Pay, Rizz or Click Nice. Or import your own MP3, or switch sound off entirely.
 
 ### Per-sticky settings
-Every sticky can have its own:
-- Colour theme (6 presets + custom colour picker)
-- Sound effect
-- Confetti style, size, amount, gravity, volume, and colour
+Every sticky gets its own:
+- Colour (6 presets, or pick any colour you like)
+- Sound
+- Confetti style, size, amount, gravity, volume and colour
 - Always on top toggle
 
-### Zapier integration
-Connect task completions to 5,000+ apps. Set a webhook URL in Settings → Zapier Integration and tasks will flow to Notion, Slack, Google Sheets, Todoist — wherever you want.
+---
+
+## Add tasks without opening Sticky
+
+Sticky has a `sticky://` URL scheme, so you can throw tasks at it from your launcher:
+
+- **Raycast**: type "Add Sticky Task", pick a sticky, type the task. Setup is in [`raycast-sticky`](raycast-sticky).
+- **Alfred**: type `sticky buy milk` and pick which sticky it goes on. Needs the Powerpack. Setup is in [`alfred-sticky`](alfred-sticky).
+
+Either way, the task lands and that sticky jumps to the front.
+
+### Zapier
+Paste a webhook URL into Settings → Zapier Integration and every ticked-off task gets sent there, so it can carry on to Notion, Slack, Google Sheets, Todoist or wherever.
 
 ---
 
@@ -75,25 +82,29 @@ Connect task completions to 5,000+ apps. Set a webhook URL in Settings → Zapie
 | `⇧⌘O` | Open all stickies side by side |
 | `⌥⇧S` | Show / hide all stickies |
 | `Enter` | New task |
-| `Backspace` | Delete empty task |
+| `⇧Enter` | Line break inside a task |
+| `⌘Enter` | Tick a task off |
+| `Backspace` | Delete an empty task |
 | `⌘Q` | Quit |
 
 ---
 
 ## Building from source
 
-Requires Xcode 15+ and macOS 14+. No third-party dependencies.
+You'll need Xcode 15+ and macOS 14+. There are no third-party dependencies.
 
 ```bash
-git clone https://github.com/Harit556/Sticky.git
+git clone https://github.com/harit-gillar/Sticky.git
 cd Sticky
 open Sticky.xcodeproj
 ```
 
-Press `⌘R` to build and run.
+Hit `⌘R` to build and run.
+
+There's also an early iPhone version in the project, and CloudKit sync code switched off behind a flag. Neither is finished, so don't expect much from them yet.
 
 ---
 
 ## Tech
 
-Swift + SwiftUI, SpriteKit for confetti, AVFoundation for audio, JSON persistence with atomic writes.
+Swift + SwiftUI, SpriteKit for the confetti, AVFoundation for the sounds, and plain JSON on disk (written atomically) for your notes.

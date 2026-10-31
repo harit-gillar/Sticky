@@ -1,6 +1,6 @@
 # Sticky — Raycast Extension
 
-Add tasks to your [Sticky](https://github.com/Harit556/Sticky) notes from Raycast.
+Add tasks to your [Sticky](https://github.com/harit-gillar/Sticky) notes from Raycast.
 
 ## Setup
 
