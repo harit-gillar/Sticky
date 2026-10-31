@@ -2,21 +2,23 @@
 
 Sticky notes for your Mac desktop, each with its own to-do list. Tick something off and you get confetti. That's basically it.
 
-![macOS](https://img.shields.io/badge/macOS-14.0+-blue) ![Swift](https://img.shields.io/badge/Swift-5.9-orange)
+![macOS](https://img.shields.io/badge/macOS-14.0+-blue) ![Swift](https://img.shields.io/badge/Swift-5.9-orange) ![Licence](https://img.shields.io/badge/licence-MIT-green)
+
+![Ticking off a task and getting confetti](docs/confetti.gif)
 
 ---
 
 ## Download
 
-Grab the latest build from [Releases](https://github.com/harit-gillar/Sticky/releases). Unzip it and drag **Sticky.app** into Applications.
+Grab **Sticky.zip** from the [latest release](https://github.com/harit-gillar/Sticky/releases/latest). Unzip it and drag **Sticky.app** into Applications.
 
 > First launch: right-click → Open to get past Gatekeeper. The app isn't signed, so macOS will moan about it.
-
-The Raycast and Alfred integrations came after v1.1.3, so for those you'll need to [build from source](#building-from-source) for now.
 
 ---
 
 ## Features
+
+![Three stickies on a desktop](docs/stickies.png)
 
 ### The basics
 - As many floating stickies as you want, each with its own tasks and colour
@@ -65,7 +67,7 @@ Every sticky gets its own:
 Sticky has a `sticky://` URL scheme, so you can throw tasks at it from your launcher:
 
 - **Raycast**: type "Add Sticky Task", pick a sticky, type the task. Setup is in [`raycast-sticky`](raycast-sticky).
-- **Alfred**: type `sticky buy milk` and pick which sticky it goes on. Needs the Powerpack. Setup is in [`alfred-sticky`](alfred-sticky).
+- **Alfred**: type `sticky buy milk` and pick which sticky it goes on. Needs the Powerpack. Grab `Sticky.alfredworkflow` from the [latest release](https://github.com/harit-gillar/Sticky/releases/latest) and double-click it, or see [`alfred-sticky`](alfred-sticky).
 
 Either way, the task lands and that sticky jumps to the front.
 
@@ -96,6 +98,7 @@ You'll need Xcode 15+ and macOS 14+. There are no third-party dependencies.
 ```bash
 git clone https://github.com/harit-gillar/Sticky.git
 cd Sticky
+mkdir -p "Sticky/Preview Content"   # Xcode expects it, git doesn't keep empty folders
 open Sticky.xcodeproj
 ```
 
@@ -108,3 +111,9 @@ There's also an early iPhone version in the project, and CloudKit sync code swit
 ## Tech
 
 Swift + SwiftUI, SpriteKit for the confetti, AVFoundation for the sounds, and plain JSON on disk (written atomically) for your notes.
+
+---
+
+## Licence
+
+MIT. Do what you like with it.

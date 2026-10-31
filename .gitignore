@@ -46,3 +46,7 @@ Carthage/Build/
 .vscode/
 *.swp
 *.swo
+
+# Release builds (attached to GitHub releases instead)
+Sticky.zip
+*.alfredworkflow

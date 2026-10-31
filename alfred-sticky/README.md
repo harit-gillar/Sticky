@@ -6,9 +6,8 @@ Requires Alfred 5 with the **Powerpack**.
 
 ## Install
 
-Double-click `Sticky.alfredworkflow` (build it with the command below if it's not present) and Alfred will import it.
+Download `Sticky.alfredworkflow` from the [latest release](https://github.com/harit-gillar/Sticky/releases/latest) and double-click it. Alfred will import it. Or build it yourself:
 
-To build the package from source:
 ```bash
 cd alfred-sticky && zip -r ../Sticky.alfredworkflow . -x '.*' && cd ..
 open ../Sticky.alfredworkflow
