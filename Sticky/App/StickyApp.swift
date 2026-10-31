@@ -25,6 +25,12 @@ struct StickyApp: App {
         .windowResizability(.contentMinSize)
         .defaultSize(width: 280, height: 400)
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") {
+                    Updater.shared.checkNow()
+                }
+            }
+
             CommandGroup(replacing: .newItem) {
                 Button("New Sticky Note") {
                     let note = store.createSticky()

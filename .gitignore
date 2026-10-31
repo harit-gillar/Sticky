@@ -46,3 +46,6 @@ Carthage/Build/
 .vscode/
 *.swp
 *.swo
+
+# Release builds (published on GitHub Releases, not committed)
+/Sticky.zip

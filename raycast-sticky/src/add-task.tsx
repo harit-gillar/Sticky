@@ -11,7 +11,7 @@ import {
   useNavigation,
 } from "@raycast/api";
 import { useEffect, useState } from "react";
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 
@@ -42,10 +42,12 @@ interface StickyFile {
 
 // MARK: - Constants
 
-const STICKY_PATH = join(
-  homedir(),
-  "Library/Containers/com.stickytodos.app/Data/Library/Application Support/Sticky/stickies.json",
-);
+// Sticky 1.2.0+ isn't sandboxed; older versions kept their data in the container
+const STICKY_PATHS = [
+  join(homedir(), "Library/Application Support/Sticky/stickies.json"),
+  join(homedir(), "Library/Containers/com.stickytodos.app/Data/Library/Application Support/Sticky/stickies.json"),
+];
+const STICKY_PATH = STICKY_PATHS.find((p) => existsSync(p)) ?? STICKY_PATHS[0];
 
 // Map preset color names to Raycast Color tokens for icons + accents
 const PRESET_TO_RAYCAST: Record<string, Color> = {

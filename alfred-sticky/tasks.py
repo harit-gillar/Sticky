@@ -6,10 +6,15 @@ Alfred filters the rows as you type, so the query is not used here.
 import json
 import os
 
-PATH = os.path.expanduser(
-    "~/Library/Containers/com.stickytodos.app/Data/Library/"
-    "Application Support/Sticky/stickies.json"
-)
+# Sticky 1.2.0+ isn't sandboxed; older versions kept their data in the container
+PATHS = [
+    os.path.expanduser("~/Library/Application Support/Sticky/stickies.json"),
+    os.path.expanduser(
+        "~/Library/Containers/com.stickytodos.app/Data/Library/"
+        "Application Support/Sticky/stickies.json"
+    ),
+]
+PATH = next((p for p in PATHS if os.path.exists(p)), PATHS[0])
 
 sticky_id = os.environ.get("stickyID", "")
 
