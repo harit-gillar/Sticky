@@ -40,6 +40,9 @@ struct StickyApp: App {
                             openWindow(id: "sticky", value: sticky.id)
                         }
                         Button("Delete") {
+                            // Close first, or the orphaned window falls back to
+                            // showing another sticky
+                            StickyWindowRegistry.shared.close(id: sticky.id)
                             store.deleteSticky(id: sticky.id)
                         }
                     }
@@ -242,7 +245,16 @@ extension StickyApp {
             )
 
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.15) {
-                self.openWindow(id: "sticky", value: sticky.id)
+                // openWindow duplicates already-open values; move those instead
+                if StickyWindowRegistry.shared.raiseIfPresent(id: sticky.id) {
+                    if let note = store.sticky(for: sticky.id), let frame = note.windowFrame {
+                        StickyWindowRegistry.shared.move(
+                            id: sticky.id, to: frame.cgRect, keepHeight: note.isMinimized
+                        )
+                    }
+                } else {
+                    self.openWindow(id: "sticky", value: sticky.id)
+                }
             }
         }
     }
@@ -260,14 +272,30 @@ struct StickyWindowRoot: View {
             if let id = stickyID, store.sticky(for: id) != nil {
                 StickyNoteView(stickyID: id)
             } else {
-                // First launch or missing sticky — assign the first one
-                Color.clear.onAppear {
-                    if stickyID == nil || store.sticky(for: stickyID!) == nil {
-                        let id = store.stickies.first?.id ?? store.createSticky().id
-                        stickyID = id
-                    }
-                }
+                // First launch, or a window whose sticky is gone (deleted, or
+                // restored by macOS from an older session)
+                Color.clear.background(WindowAccessor(window: .constant(nil)) { window in
+                    adoptStickyOrClose(window)
+                })
             }
+        }
+    }
+
+    /// Shows a sticky that isn't open in another window. If every sticky is
+    /// already showing, closes this window rather than duplicating one.
+    private func adoptStickyOrClose(_ window: NSWindow) {
+        if let id = stickyID, store.sticky(for: id) != nil { return }
+        let registry = StickyWindowRegistry.shared
+
+        if let free = store.stickies.first(where: { !registry.isOpen(id: $0.id) }) {
+            registry.claim(free.id)
+            stickyID = free.id
+        } else if store.stickies.isEmpty {
+            let note = store.createSticky()
+            registry.claim(note.id)
+            stickyID = note.id
+        } else {
+            window.close()
         }
     }
 }
