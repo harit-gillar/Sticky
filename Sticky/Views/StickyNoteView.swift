@@ -287,11 +287,23 @@ struct StickyNoteView: View {
     }
 
     private func handleTaskCompletion(taskID: UUID) {
-        let windowFrame = NSApplication.shared.keyWindow?.frame
-        let note = sticky.wrappedValue
+        TaskCompletionEffects.play(
+            note: sticky.wrappedValue,
+            taskID: taskID,
+            windowFrame: NSApplication.shared.keyWindow?.frame
+        )
+    }
+}
+
+// MARK: - Task Completion Effects
+
+/// Sound, confetti and Zapier webhook for a ticked task. Shared by the sticky
+/// window and the sticky://complete URL (e.g. from Alfred).
+@MainActor
+enum TaskCompletionEffects {
+    static func play(note: StickyNote, taskID: UUID, windowFrame: NSRect?) {
         let task = note.tasks.first(where: { $0.id == taskID })
         let stickyName = note.colorTheme.displayName
-        let sid = stickyID
         let effectiveAmount = note.confettiAmount ?? ConfettiSettings.shared.amount
 
         DispatchQueue.main.async {
@@ -307,7 +319,7 @@ struct StickyNoteView: View {
                 )
             }
             if let task = task {
-                ZapierWebhookService.shared.fireEvent(type: .taskCompleted, stickyID: sid, stickyName: stickyName, task: task)
+                ZapierWebhookService.shared.fireEvent(type: .taskCompleted, stickyID: note.id, stickyName: stickyName, task: task)
             }
         }
     }

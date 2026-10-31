@@ -53,49 +53,82 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// sticky://add?stickyID=…&text=…       — append a task
+    /// sticky://complete?stickyID=…&taskID=… — tick a task off (never unticks)
     @MainActor
     private func handleIncomingURL(_ url: URL) {
-        guard url.scheme == "sticky", url.host == "add" else { return }
+        guard url.scheme == "sticky" else { return }
 
         let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
         guard let items = components?.queryItems else { return }
 
         var stickyID: UUID?
+        var taskID: UUID?
         var text: String?
         for item in items {
             if item.name == "stickyID", let v = item.value { stickyID = UUID(uuidString: v) }
+            if item.name == "taskID",   let v = item.value { taskID = UUID(uuidString: v) }
             if item.name == "text",     let v = item.value { text = v }
         }
 
         guard let id = stickyID,
-              let t = text,
-              !t.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               var sticky = StickyStore.shared.sticky(for: id) else { return }
 
-        // Add task and persist (this also schedules CloudKit push)
-        sticky.addTask(title: t)
-        StickyStore.shared.updateSticky(sticky)
+        switch url.host {
+        case "add":
+            guard let t = text,
+                  !t.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
 
+            // Add task and persist (this also schedules CloudKit push)
+            sticky.addTask(title: t)
+            StickyStore.shared.updateSticky(sticky)
+            Task { @MainActor in _ = await self.raiseSticky(id: id) }
+
+        case "complete":
+            guard let tid = taskID, sticky.completeTask(id: tid) else { return }
+            let completed = sticky
+            sticky.applyAutoSort()
+            StickyStore.shared.updateSticky(sticky)
+
+            // Celebrate once the window is up so confetti lands on it
+            Task { @MainActor in
+                let frame = await self.raiseSticky(id: id)
+                TaskCompletionEffects.play(note: completed, taskID: tid, windowFrame: frame)
+            }
+
+        default:
+            return
+        }
+    }
+
+    /// Brings a sticky's window to the front and returns its frame, or nil if
+    /// no window turned up.
+    @MainActor
+    private func raiseSticky(id: UUID) async -> NSRect? {
         NSApp.activate(ignoringOtherApps: true)
 
         // If a window for this sticky is already open, raise it directly via
         // AppKit. Only fall back to SwiftUI's openWindow when no window exists,
         // since openWindow has been observed to create duplicates for already-
         // open values.
-        if StickyWindowRegistry.shared.raiseIfPresent(id: id) { return }
+        if StickyWindowRegistry.shared.raiseIfPresent(id: id) {
+            return StickyWindowRegistry.shared.frame(for: id)
+        }
 
         // Registry may be empty if the app is cold-launching (openAllTrigger
         // hasn't fired yet). Retry once after a delay; only then fall back to
         // openWindow.
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 2_500_000_000)
-            if StickyWindowRegistry.shared.raiseIfPresent(id: id) { return }
-            NotificationCenter.default.post(
-                name: .openStickyByID,
-                object: nil,
-                userInfo: ["stickyID": id, "nonce": UUID()]
-            )
+        try? await Task.sleep(nanoseconds: 2_500_000_000)
+        if StickyWindowRegistry.shared.raiseIfPresent(id: id) {
+            return StickyWindowRegistry.shared.frame(for: id)
         }
+        NotificationCenter.default.post(
+            name: .openStickyByID,
+            object: nil,
+            userInfo: ["stickyID": id, "nonce": UUID()]
+        )
+        try? await Task.sleep(nanoseconds: 600_000_000)
+        return StickyWindowRegistry.shared.frame(for: id)
     }
 
 
@@ -182,6 +215,11 @@ final class StickyWindowRegistry {
     func isOpen(id: UUID) -> Bool {
         registry = registry.filter { $0.value.window != nil }
         return registry[id]?.window != nil
+    }
+
+    /// Screen frame of the live window for this id, if one is open.
+    func frame(for id: UUID) -> NSRect? {
+        registry[id]?.window?.frame
     }
 
     /// Returns true if a live window for this id was raised. Cleans up nil

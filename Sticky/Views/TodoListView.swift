@@ -110,15 +110,7 @@ struct TodoListView: View {
         if !wasCompleted {
             onTaskCompleted(taskID)
         }
-        // Auto-sort: incomplete tasks first, completed tasks last
-        if sticky.autoSortCompleted {
-            let incomplete = sticky.tasks.filter { !$0.isCompleted }
-            let completed = sticky.tasks.filter { $0.isCompleted }
-            sticky.tasks = incomplete + completed
-            for i in sticky.tasks.indices {
-                sticky.tasks[i].sortOrder = i
-            }
-        }
+        sticky.applyAutoSort()
     }
 
     // MARK: - Arrow Key Navigation

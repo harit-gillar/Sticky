@@ -12,7 +12,45 @@
 		<array>
 			<dict>
 				<key>destinationuid</key>
+				<string>5B0C3E2A-7D41-4C8E-9F6A-2E1D4B7A9C10</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+		</array>
+		<key>5B0C3E2A-7D41-4C8E-9F6A-2E1D4B7A9C10</key>
+		<array>
+			<dict>
+				<key>destinationuid</key>
 				<string>0A61EDA3-D4B5-411C-8B50-FA5D05862FCB</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>sourceoutputuid</key>
+				<string>8E2F1A4C-3B6D-4E9A-A1C7-6D5B2F8E0A31</string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+			<dict>
+				<key>destinationuid</key>
+				<string>C7A9E1D3-4F25-4B8C-9E6A-1B3D5F7A9C42</string>
+				<key>modifiers</key>
+				<integer>0</integer>
+				<key>modifiersubtext</key>
+				<string></string>
+				<key>vitoclose</key>
+				<false/>
+			</dict>
+		</array>
+		<key>C7A9E1D3-4F25-4B8C-9E6A-1B3D5F7A9C42</key>
+		<array>
+			<dict>
+				<key>destinationuid</key>
+				<string>E4B6D8F0-2A13-4C5E-8F7A-9B1D3E5C7A53</string>
 				<key>modifiers</key>
 				<integer>0</integer>
 				<key>modifiersubtext</key>
@@ -25,7 +63,7 @@
 	<key>createdby</key>
 	<string>Harit</string>
 	<key>description</key>
-	<string>Add a task to one of your stickies</string>
+	<string>Add a task to a sticky, or tick one off</string>
 	<key>disabled</key>
 	<false/>
 	<key>name</key>
@@ -66,9 +104,9 @@
 				<key>scriptfile</key>
 				<string></string>
 				<key>subtext</key>
-				<string>Type a task, then pick a sticky</string>
+				<string>Type a task to add it, or just Enter to tick one off</string>
 				<key>title</key>
-				<string>Add to Sticky</string>
+				<string>Sticky</string>
 				<key>type</key>
 				<integer>0</integer>
 				<key>withspace</key>
@@ -80,6 +118,38 @@
 			<string>1A6DA5D4-5AFB-41A3-9B7C-CC9326D933D8</string>
 			<key>version</key>
 			<integer>3</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>conditions</key>
+				<array>
+					<dict>
+						<key>inputstring</key>
+						<string>{var:mode}</string>
+						<key>matchcasesensitive</key>
+						<false/>
+						<key>matchmode</key>
+						<integer>0</integer>
+						<key>matchstring</key>
+						<string>add</string>
+						<key>outputlabel</key>
+						<string>Add task</string>
+						<key>uid</key>
+						<string>8E2F1A4C-3B6D-4E9A-A1C7-6D5B2F8E0A31</string>
+					</dict>
+				</array>
+				<key>elselabel</key>
+				<string>Tick off</string>
+				<key>hideelse</key>
+				<false/>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.utility.conditional</string>
+			<key>uid</key>
+			<string>5B0C3E2A-7D41-4C8E-9F6A-2E1D4B7A9C10</string>
+			<key>version</key>
+			<integer>1</integer>
 		</dict>
 		<dict>
 			<key>config</key>
@@ -104,13 +174,87 @@
 			<key>version</key>
 			<integer>2</integer>
 		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>alfredfiltersresults</key>
+				<true/>
+				<key>alfredfiltersresultsmatchmode</key>
+				<integer>0</integer>
+				<key>argumenttreatemptyqueryasnil</key>
+				<false/>
+				<key>argumenttrimmode</key>
+				<integer>0</integer>
+				<key>argumenttype</key>
+				<integer>1</integer>
+				<key>escaping</key>
+				<integer>102</integer>
+				<key>keyword</key>
+				<string></string>
+				<key>queuedelaycustom</key>
+				<integer>3</integer>
+				<key>queuedelayimmediatelyinitially</key>
+				<true/>
+				<key>queuedelaymode</key>
+				<integer>0</integer>
+				<key>queuemode</key>
+				<integer>1</integer>
+				<key>runningsubtext</key>
+				<string>Loading tasks…</string>
+				<key>script</key>
+				<string>/usr/bin/python3 tasks.py "$1"</string>
+				<key>scriptargtype</key>
+				<integer>1</integer>
+				<key>scriptfile</key>
+				<string></string>
+				<key>subtext</key>
+				<string>Pick a task to tick off</string>
+				<key>title</key>
+				<string>Tick off a task</string>
+				<key>type</key>
+				<integer>0</integer>
+				<key>withspace</key>
+				<false/>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.input.scriptfilter</string>
+			<key>uid</key>
+			<string>C7A9E1D3-4F25-4B8C-9E6A-1B3D5F7A9C42</string>
+			<key>version</key>
+			<integer>3</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>concurrently</key>
+				<false/>
+				<key>escaping</key>
+				<integer>102</integer>
+				<key>script</key>
+				<string>/usr/bin/python3 tick.py "$1"</string>
+				<key>scriptargtype</key>
+				<integer>1</integer>
+				<key>scriptfile</key>
+				<string></string>
+				<key>type</key>
+				<integer>0</integer>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.action.script</string>
+			<key>uid</key>
+			<string>E4B6D8F0-2A13-4C5E-8F7A-9B1D3E5C7A53</string>
+			<key>version</key>
+			<integer>2</integer>
+		</dict>
 	</array>
 	<key>readme</key>
-	<string>Add tasks to your Sticky notes.
+	<string>Add and tick off tasks in your Sticky notes.
 
-Type "sticky" followed by your task, then pick which sticky to add it to:
+Add a task: type "sticky" followed by the task, pick a sticky, press Enter.
 
     sticky buy milk
+
+Tick off a task: type "sticky" on its own, pick a sticky, then pick the task.
 
 Requires the Sticky app (with the sticky:// URL scheme) to be installed and run at least once.</string>
 	<key>uidata</key>
@@ -118,21 +262,42 @@ Requires the Sticky app (with the sticky:// URL scheme) to be installed and run 
 		<key>0A61EDA3-D4B5-411C-8B50-FA5D05862FCB</key>
 		<dict>
 			<key>xpos</key>
-			<integer>360</integer>
+			<integer>460</integer>
 			<key>ypos</key>
-			<integer>60</integer>
+			<integer>40</integer>
 		</dict>
 		<key>1A6DA5D4-5AFB-41A3-9B7C-CC9326D933D8</key>
 		<dict>
 			<key>xpos</key>
 			<integer>60</integer>
 			<key>ypos</key>
-			<integer>60</integer>
+			<integer>140</integer>
+		</dict>
+		<key>5B0C3E2A-7D41-4C8E-9F6A-2E1D4B7A9C10</key>
+		<dict>
+			<key>xpos</key>
+			<integer>260</integer>
+			<key>ypos</key>
+			<integer>160</integer>
+		</dict>
+		<key>C7A9E1D3-4F25-4B8C-9E6A-1B3D5F7A9C42</key>
+		<dict>
+			<key>xpos</key>
+			<integer>460</integer>
+			<key>ypos</key>
+			<integer>240</integer>
+		</dict>
+		<key>E4B6D8F0-2A13-4C5E-8F7A-9B1D3E5C7A53</key>
+		<dict>
+			<key>xpos</key>
+			<integer>660</integer>
+			<key>ypos</key>
+			<integer>240</integer>
 		</dict>
 	</dict>
 	<key>version</key>
-	<string>1.0</string>
+	<string>1.1</string>
 	<key>webaddress</key>
-	<string>https://github.com/Harit556/Sticky</string>
+	<string>https://github.com/harit-gillar/Sticky</string>
 </dict>
 </plist>

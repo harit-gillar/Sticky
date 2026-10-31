@@ -67,9 +67,9 @@ Every sticky gets its own:
 Sticky has a `sticky://` URL scheme, so you can throw tasks at it from your launcher:
 
 - **Raycast**: type "Add Sticky Task", pick a sticky, type the task. Setup is in [`raycast-sticky`](raycast-sticky).
-- **Alfred**: type `sticky buy milk` and pick which sticky it goes on. Needs the Powerpack. Grab `Sticky.alfredworkflow` from the [latest release](https://github.com/harit-gillar/Sticky/releases/latest) and double-click it, or see [`alfred-sticky`](alfred-sticky).
+- **Alfred**: type `sticky buy milk` and pick which sticky it goes on. Type just `sticky`, pick a sticky, then pick a task to tick it off. Needs the Powerpack. Grab `Sticky.alfredworkflow` from the [latest release](https://github.com/harit-gillar/Sticky/releases/latest) and double-click it, or see [`alfred-sticky`](alfred-sticky).
 
-Either way, the task lands and that sticky jumps to the front.
+Either way, that sticky jumps to the front. Ticking off from Alfred plays the sticky's sound and confetti, the same as ticking it in the app.
 
 ### Zapier
 Paste a webhook URL into Settings → Zapier Integration and every ticked-off task gets sent there, so it can carry on to Notion, Slack, Google Sheets, Todoist or wherever.

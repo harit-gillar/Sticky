@@ -1,11 +1,20 @@
 #!/usr/bin/env python3
-"""Alfred Script Filter: list stickies, each as 'add <task> to this sticky'."""
+"""Alfred Script Filter: list stickies.
+
+With text after "sticky ", each row adds that text as a task (mode=add).
+With no text, each row opens that sticky's open tasks to tick off (mode=pick).
+"""
 import json
 import os
 import sys
 
 QUERY = sys.argv[1] if len(sys.argv) > 1 else ""
 task = QUERY.strip()
+# Allow `sticky "new task"` — drop one pair of surrounding quotes
+for open_q, close_q in (('"', '"'), ("'", "'"), ("“", "”"), ("‘", "’")):
+    if len(task) >= 2 and task.startswith(open_q) and task.endswith(close_q):
+        task = task[1:-1].strip()
+        break
 
 PATH = os.path.expanduser(
     "~/Library/Containers/com.stickytodos.app/Data/Library/"
@@ -30,11 +39,17 @@ try:
         tasks = s.get("tasks", [])
         remaining = sum(1 for t in tasks if not t.get("isCompleted"))
         total = len(tasks)
-        valid = bool(task)
-        if valid:
+        if task:
+            mode = "add"
+            valid = True
             subtitle = f'Add "{task}"  ·  {remaining}/{total} open'
         else:
-            subtitle = f'Type a task after "sticky "  ·  {remaining}/{total} open'
+            mode = "pick"
+            valid = remaining > 0
+            if valid:
+                subtitle = f"Enter to tick off a task  ·  {remaining}/{total} open"
+            else:
+                subtitle = "Nothing to tick off  ·  type a task to add one"
         items.append(
             {
                 "uid": s["id"],
@@ -42,7 +57,7 @@ try:
                 "subtitle": subtitle,
                 "arg": task,
                 "valid": valid,
-                "variables": {"stickyID": s["id"]},
+                "variables": {"stickyID": s["id"], "mode": mode},
             }
         )
     if not items:
