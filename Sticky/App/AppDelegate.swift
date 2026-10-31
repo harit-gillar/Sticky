@@ -206,15 +206,66 @@ final class StickyWindowRegistry {
     }
 
     private var registry: [UUID: WeakBox] = [:]
+    /// Ids handed to a window that hasn't registered yet, so two windows
+    /// adopting a sticky in the same pass can't pick the same one.
+    private var claimed: Set<UUID> = []
+    private var closeObservers: [ObjectIdentifier: Any] = [:]
 
-    func register(_ window: NSWindow, for id: UUID) {
+    /// Returns false if another window already shows this sticky; the caller
+    /// should close `window` instead of keeping a duplicate.
+    @discardableResult
+    func register(_ window: NSWindow, for id: UUID) -> Bool {
+        if let existing = registry[id]?.window, existing !== window { return false }
+
+        // A window can be re-pointed at another sticky; drop its old entry
+        registry = registry.filter { $0.value.window != nil && $0.value.window !== window }
         registry[id] = WeakBox(window)
+        claimed.remove(id)
+
+        // Closed windows can outlive close(), so forget them explicitly
+        let key = ObjectIdentifier(window)
+        guard closeObservers[key] == nil else { return true }
+        closeObservers[key] = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification,
+            object: window,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.registry = self.registry.filter { $0.value.window !== window }
+                if let observer = self.closeObservers.removeValue(forKey: key) {
+                    NotificationCenter.default.removeObserver(observer)
+                }
+            }
+        }
+        return true
     }
 
-    /// True if a live window for this id is currently open.
+    func claim(_ id: UUID) {
+        claimed.insert(id)
+    }
+
+    /// True if a live window for this id is currently open (or about to be).
     func isOpen(id: UUID) -> Bool {
         registry = registry.filter { $0.value.window != nil }
-        return registry[id]?.window != nil
+        return registry[id]?.window != nil || claimed.contains(id)
+    }
+
+    /// Closes the window showing this sticky, if any.
+    func close(id: UUID) {
+        registry[id]?.window?.close()
+    }
+
+    /// Moves an open window to `frame`. A minimised sticky keeps its current
+    /// height and lines its top edge up with the frame's.
+    func move(id: UUID, to frame: CGRect, keepHeight: Bool) {
+        guard let window = registry[id]?.window else { return }
+        var target = frame
+        if keepHeight {
+            target.size.height = window.frame.height
+            target.origin.y = frame.maxY - window.frame.height
+        }
+        window.setFrame(target, display: true, animate: false)
     }
 
     /// Screen frame of the live window for this id, if one is open.

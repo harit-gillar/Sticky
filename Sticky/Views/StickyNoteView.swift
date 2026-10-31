@@ -114,7 +114,12 @@ struct StickyNoteView: View {
             // Register this window so AppDelegate can find and raise it when
             // the URL scheme is invoked, instead of calling SwiftUI's openWindow
             // (which has been observed to duplicate already-open windows).
-            StickyWindowRegistry.shared.register(window, for: stickyID)
+            // If another window already shows this sticky (macOS restored two,
+            // or openWindow duplicated one), close this one.
+            guard StickyWindowRegistry.shared.register(window, for: stickyID) else {
+                window.close()
+                return
+            }
             startTrackingWindowPosition(window)
             setUpZoomButton(window)
         })
@@ -327,20 +332,34 @@ enum TaskCompletionEffects {
 
 // MARK: - Window Accessor
 
-private struct WindowAccessor: NSViewRepresentable {
+/// Reports the hosting NSWindow once the view is actually in it. Windows opened
+/// with openWindow attach their content after the first runloop pass, so a
+/// one-off async check of `view.window` misses them.
+struct WindowAccessor: NSViewRepresentable {
     @Binding var window: NSWindow?
     var onWindow: ((NSWindow) -> Void)? = nil
     func makeNSView(context: Context) -> NSView {
-        let view = NSView()
-        DispatchQueue.main.async {
-            if let w = view.window {
-                self.window = w
-                self.onWindow?(w)
-            }
+        let view = WindowReportingView()
+        view.onWindow = { w in
+            self.window = w
+            self.onWindow?(w)
         }
         return view
     }
     func updateNSView(_ nsView: NSView, context: Context) {}
+}
+
+final class WindowReportingView: NSView {
+    var onWindow: ((NSWindow) -> Void)?
+    private weak var reported: NSWindow?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        guard let w = window, w !== reported else { return }
+        reported = w
+        // Defer so callers can update SwiftUI state outside the view update
+        DispatchQueue.main.async { [weak self] in self?.onWindow?(w) }
+    }
 }
 
 // MARK: - Zoom button handler
