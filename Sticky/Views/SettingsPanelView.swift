@@ -145,7 +145,10 @@ struct SettingsPanelView: View {
             }
         }
         .padding(.vertical, 6)
-        .frame(width: 360)
+        // Grow to the widest row rather than a fixed width: segmented controls
+        // got wider in newer macOS, and a fixed frame clipped both edges.
+        .frame(minWidth: 360, alignment: .leading)
+        .fixedSize(horizontal: true, vertical: false)
         .sheet(isPresented: $showCustomColorPicker) { customColorSheet }
     }
 
