@@ -22,6 +22,9 @@ class StickyStore: ObservableObject {
         }
 
         self.fileURL = appDir.appendingPathComponent("stickies.json")
+#if os(macOS)
+        SandboxMigration.run(to: fileURL)
+#endif
         self.stickies = loadFromDisk()
 
         if stickies.isEmpty {
@@ -256,3 +259,35 @@ class StickyStore: ObservableObject {
         return format.stickies
     }
 }
+
+#if os(macOS)
+// MARK: - Sandbox Migration
+
+/// Sticky was sandboxed up to v1.1.x, so its notes and settings lived in
+/// ~/Library/Containers/com.stickytodos.app. From v1.2.0 it isn't (so it can
+/// update itself), which moves both. On first launch, copy them across.
+/// Never deletes the old copies.
+enum SandboxMigration {
+    private static let container = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Library/Containers/com.stickytodos.app/Data/Library", isDirectory: true)
+
+    static func run(to notesURL: URL) {
+        let fm = FileManager.default
+
+        let oldNotes = container.appendingPathComponent("Application Support/Sticky/stickies.json")
+        if !fm.fileExists(atPath: notesURL.path), fm.fileExists(atPath: oldNotes.path) {
+            try? fm.copyItem(at: oldNotes, to: notesURL)
+        }
+
+        guard let bundleID = Bundle.main.bundleIdentifier else { return }
+        let defaults = UserDefaults.standard
+        if defaults.persistentDomain(forName: bundleID)?.isEmpty ?? true,
+           let oldPrefs = NSDictionary(
+               contentsOf: container.appendingPathComponent("Preferences/\(bundleID).plist")
+           ) as? [String: Any],
+           !oldPrefs.isEmpty {
+            defaults.setPersistentDomain(oldPrefs, forName: bundleID)
+        }
+    }
+}
+#endif

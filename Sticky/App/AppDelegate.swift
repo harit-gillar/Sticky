@@ -17,6 +17,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             StickyStore.shared.openAllTrigger += 1
         }
 
+        // Once the stickies are up, quietly look for a new version (daily)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+            Updater.shared.checkInBackgroundIfDue()
+        }
+
         // Observe new windows to apply sticky styling
         windowObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didBecomeKeyNotification,

@@ -31,7 +31,7 @@ Pick a sticky and press **Enter** to see its open tasks. Type to narrow them dow
 
 ## How it works
 
-- `filter.py` (Script Filter) reads `~/Library/Containers/com.stickytodos.app/Data/Library/Application Support/Sticky/stickies.json` and outputs one Alfred row per sticky, passing `stickyID` and `mode` (`add` when you typed a task, `pick` when you didn't) as workflow variables.
+- `filter.py` (Script Filter) reads `~/Library/Application Support/Sticky/stickies.json` (or the old sandbox container path from Sticky 1.1.x) and outputs one Alfred row per sticky, passing `stickyID` and `mode` (`add` when you typed a task, `pick` when you didn't) as workflow variables.
 - A Conditional on `mode` sends `add` to `add.py` (Run Script), which fires `sticky://add?stickyID=…&text=…`.
 - Anything else goes to `tasks.py` (Script Filter), which lists that sticky's open tasks; `tick.py` (Run Script) then fires `sticky://complete?stickyID=…&taskID=…`.
 - The Sticky app handles both URLs in its AppDelegate and raises the window. `complete` only ever ticks a task, never unticks it.

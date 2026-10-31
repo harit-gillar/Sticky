@@ -30,6 +30,6 @@ The task gets added and Sticky pops the chosen sticky to the front.
 
 ## How it works
 
-- The extension reads `~/Library/Containers/com.stickytodos.app/Data/Library/Application Support/Sticky/stickies.json` to populate the dropdown
+- The extension reads `~/Library/Application Support/Sticky/stickies.json` (or the old sandbox container path from Sticky 1.1.x) to populate the dropdown
 - On submit, it fires a `sticky://add?stickyID=...&text=...` URL
 - The Sticky app intercepts the URL via its `application(_:open:)` AppDelegate handler, appends the task, and brings the window forward

@@ -14,6 +14,12 @@ Grab **Sticky.zip** from the [latest release](https://github.com/harit-gillar/St
 
 > First launch: right-click → Open to get past Gatekeeper. The app isn't signed, so macOS will moan about it.
 
+### Updating
+
+From v1.3.0, Sticky checks GitHub for a new version once a day, and you can check yourself with **Sticky → Check for Updates…**. Click **Install and Relaunch** and it downloads the new version, swaps it in and reopens. Your notes stay where they are.
+
+If you're on v1.2 or older, download v1.3.0 by hand once. On first launch it copies your notes and settings across, because 1.3.0 isn't sandboxed any more so that it can update itself. Your notes now live in `~/Library/Application Support/Sticky/stickies.json`.
+
 ---
 
 ## Features
@@ -110,7 +116,7 @@ There's also an early iPhone version in the project, and CloudKit sync code swit
 
 ## Tech
 
-Swift + SwiftUI, SpriteKit for the confetti, AVFoundation for the sounds, and plain JSON on disk (written atomically) for your notes.
+Swift + SwiftUI, SpriteKit for the confetti, AVFoundation for the sounds, and plain JSON on disk (written atomically) for your notes. Updates come straight from GitHub Releases, with no update framework.
 
 ---
 
