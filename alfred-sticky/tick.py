@@ -8,7 +8,7 @@ sticky_id = os.environ.get("stickyID", "")
 task_id = os.environ.get("taskID", "")
 
 if sticky_id and task_id:
-    url = "sticky://complete?stickyID=%s&taskID=%s" % (
+    url = "sticky://complete?stickyID=%s&itemID=%s" % (
         urllib.parse.quote(sticky_id),
         urllib.parse.quote(task_id),
     )

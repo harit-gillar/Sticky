@@ -6,14 +6,13 @@ struct StickyNoteView: View {
 
     let stickyID: UUID
 
-    @Environment(\.openWindow) private var openWindow
     @State private var showSettings = false
     @State private var stickyWindow: NSWindow?
     @State private var listContentHeight: CGFloat = 0
     @State private var listViewportHeight: CGFloat = 0
     @State private var zoomCoordinator: WindowZoomCoordinator?
 
-    private let minimizedHeight: CGFloat = 36
+    private let minimizedHeight = MinimizeGeometry.collapsedHeight
 
     private var sticky: Binding<StickyNote> {
         store.binding(for: stickyID)
@@ -102,21 +101,12 @@ struct StickyNoteView: View {
         .onAppear {
             configureWindow()
         }
-        .onChange(of: store.openAllTrigger) { _, newValue in
-            // Only one observer handles each trigger increment — otherwise every
-            // open window would try to open all the others, duplicating windows.
-            if OpenAllCoordinator.shared.shouldHandle(newValue) {
-                openRemainingStickies()
-            }
-        }
         .onChange(of: note.isAlwaysOnTop) { _, isOnTop in setWindowLevel(floating: isOnTop) }
         .background(WindowAccessor(window: $stickyWindow) { window in
-            // Register this window so AppDelegate can find and raise it when
-            // the URL scheme is invoked, instead of calling SwiftUI's openWindow
-            // (which has been observed to duplicate already-open windows).
-            // If another window already shows this sticky (macOS restored two,
-            // or openWindow duplicated one), close this one.
-            guard StickyWindowRegistry.shared.register(window, for: stickyID) else {
+            // Tell StickyWindows this sticky is now open, so it raises this
+            // window instead of opening another. If another window already
+            // shows this sticky (macOS restored two), close this one.
+            guard StickyWindows.shared.register(window, for: stickyID) else {
                 window.close()
                 return
             }
@@ -165,29 +155,10 @@ struct StickyNoteView: View {
             window.level = note.isAlwaysOnTop ? .floating : .normal
             if let frame = note.windowFrame {
                 if note.isMinimized {
-                    let f = CGRect(x: frame.x, y: frame.y + frame.height - minimizedHeight,
-                                   width: frame.width, height: minimizedHeight)
-                    window.setFrame(f, display: true, animate: false)
+                    window.setFrame(MinimizeGeometry.collapsed(frame.cgRect), display: true, animate: false)
                     applyMinimizedConstraints(window)
                 } else {
                     window.setFrame(frame.cgRect, display: true, animate: false)
-                }
-            }
-        }
-    }
-
-    private func openRemainingStickies() {
-        if store.isFirstLaunch { store.isFirstLaunch = false }
-        let currentID = stickyID
-        let otherStickies = store.stickies.filter { $0.id != currentID }
-        for (index, other) in otherStickies.enumerated() {
-            let delay = 0.3 + Double(index) * 0.3
-            let id = other.id
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                // Skip stickies that are already open (e.g. restored by macOS),
-                // raising them instead. openWindow duplicates already-open values.
-                if !StickyWindowRegistry.shared.raiseIfPresent(id: id) {
-                    self.openWindow(id: "sticky", value: id)
                 }
             }
         }
@@ -200,17 +171,14 @@ struct StickyNoteView: View {
             // Save current expanded frame, then shrink
             store.updateWindowFrame(for: stickyID, frame: current)
             sticky.wrappedValue.isMinimized = true
-            let newFrame = CGRect(x: current.minX, y: current.maxY - minimizedHeight,
-                                  width: current.width, height: minimizedHeight)
-            window.setFrame(newFrame, display: true, animate: true)
+            window.setFrame(MinimizeGeometry.collapsed(current), display: true, animate: true)
             applyMinimizedConstraints(window)
         } else {
             // Expand back to saved size
             sticky.wrappedValue.isMinimized = false
-            let saved = sticky.wrappedValue.windowFrame
-            let h = saved?.height ?? 400
-            let w = saved?.width ?? 280
-            let newFrame = CGRect(x: current.minX, y: current.maxY - h, width: w, height: h)
+            let newFrame = MinimizeGeometry.expanded(
+                fromCollapsed: current, saved: sticky.wrappedValue.windowFrame?.cgRect
+            )
             window.setFrame(newFrame, display: true, animate: true)
             window.minSize = CGSize(width: 220, height: 180)
             window.maxSize = CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
@@ -230,9 +198,7 @@ struct StickyNoteView: View {
             queue: .main
         ) { [weak window] _ in
             guard let frame = window?.frame else { return }
-            let note = sticky.wrappedValue
-            guard !note.isMinimized else { return } // don't overwrite full-size frame while minimised
-            store.updateWindowFrame(for: stickyID, frame: frame)
+            saveWindowFrame(frame)
         }
         NotificationCenter.default.addObserver(
             forName: NSWindow.didEndLiveResizeNotification,
@@ -240,8 +206,18 @@ struct StickyNoteView: View {
             queue: .main
         ) { [weak window] _ in
             guard let frame = window?.frame else { return }
-            store.updateWindowFrame(for: stickyID, frame: frame)
+            saveWindowFrame(frame)
         }
+    }
+
+    /// The saved frame is always the expanded one. While minimised, the window
+    /// is only the title strip, so work out where the expanded sticky now sits.
+    private func saveWindowFrame(_ frame: CGRect) {
+        let note = sticky.wrappedValue
+        let expanded = note.isMinimized
+            ? MinimizeGeometry.expanded(fromCollapsed: frame, saved: note.windowFrame?.cgRect)
+            : frame
+        store.updateWindowFrame(for: stickyID, frame: expanded)
     }
 
     private func setWindowLevel(floating: Bool) {
@@ -251,14 +227,14 @@ struct StickyNoteView: View {
     private func createNoteNextToCurrentWindow() {
         let currentFrame = NSApplication.shared.keyWindow?.frame
         let note = store.createSticky(nextToFrame: currentFrame)
-        openWindow(id: "sticky", value: note.id)
+        StickyWindows.shared.show(note.id)
     }
 
     private func duplicateCurrentNote() {
         showSettings = false
         if let copy = store.duplicateSticky(id: stickyID) {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                openWindow(id: "sticky", value: copy.id)
+                StickyWindows.shared.show(copy.id)
             }
         }
     }
@@ -368,4 +344,30 @@ final class WindowReportingView: NSView {
 final class WindowZoomCoordinator: NSObject {
     var onZoom: () -> Void = {}
     @objc func handleZoom() { onZoom() }
+}
+
+// MARK: - Minimise geometry
+
+/// A sticky is either expanded or minimised to a title strip. Its saved
+/// `windowFrame` is always the *expanded* frame, even while minimised; the
+/// strip hangs from the expanded frame's top edge. These convert between the
+/// two so moving or resizing a minimised sticky keeps the saved frame right.
+enum MinimizeGeometry {
+    static let collapsedHeight: CGFloat = 36
+    /// Size to expand to when nothing was saved
+    static let defaultExpandedSize = CGSize(width: 280, height: 400)
+
+    /// The title strip for a sticky whose expanded frame is `expanded`
+    static func collapsed(_ expanded: CGRect) -> CGRect {
+        CGRect(x: expanded.minX, y: expanded.maxY - collapsedHeight,
+               width: expanded.width, height: collapsedHeight)
+    }
+
+    /// The expanded frame for a strip now at `collapsed`: same top edge and
+    /// width (it may have been resized), saved height.
+    static func expanded(fromCollapsed collapsed: CGRect, saved: CGRect?) -> CGRect {
+        let height = saved?.height ?? defaultExpandedSize.height
+        return CGRect(x: collapsed.minX, y: collapsed.maxY - height,
+                      width: collapsed.width, height: height)
+    }
 }

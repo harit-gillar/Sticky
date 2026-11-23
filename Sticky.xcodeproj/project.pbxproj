@@ -12,6 +12,9 @@
 		A10003 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10003; };
 		A10041 /* GlobalHotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10041; };
 		A10070 /* Updater.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10070; };
+		A10071 /* StickyWindows.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10071; };
+		A10072 /* StickyLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10072; };
+		A10203 /* StickyLinkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10203; };
 		A10004 /* TodoItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10004; };
 		A10005 /* StickyNote.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10005; };
 		A10006 /* StickyColorTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10006; };
@@ -67,6 +70,9 @@
 		A10125 /* Apple Pay.mp3 in iOS Resources */ = {isa = PBXBuildFile; fileRef = B10034; };
 		A10126 /* Rizz.mp3 in iOS Resources */ = {isa = PBXBuildFile; fileRef = B10035; };
 		A10127 /* Click Nice.mp3 in iOS Resources */ = {isa = PBXBuildFile; fileRef = B10036; };
+		A10200 /* NotesFileTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10200; };
+		A10201 /* StickyWindowsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10201; };
+		A10202 /* StateHelpersTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10202; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -75,6 +81,9 @@
 		B10003 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		B10041 /* GlobalHotkeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalHotkeyManager.swift; sourceTree = "<group>"; };
 		B10070 /* Updater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Updater.swift; sourceTree = "<group>"; };
+		B10071 /* StickyWindows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickyWindows.swift; sourceTree = "<group>"; };
+		B10072 /* StickyLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickyLink.swift; sourceTree = "<group>"; };
+		B10203 /* StickyLinkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickyLinkTests.swift; sourceTree = "<group>"; };
 		B10004 /* TodoItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodoItem.swift; sourceTree = "<group>"; };
 		B10005 /* StickyNote.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickyNote.swift; sourceTree = "<group>"; };
 		B10006 /* StickyColorTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickyColorTheme.swift; sourceTree = "<group>"; };
@@ -115,6 +124,10 @@
 		B10064 /* iOSSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iOSSettingsView.swift; sourceTree = "<group>"; };
 		P10001 /* Sticky.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sticky.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		P10002 /* Sticky iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Sticky iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10200 /* NotesFileTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesFileTests.swift; sourceTree = "<group>"; };
+		B10201 /* StickyWindowsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StickyWindowsTests.swift; sourceTree = "<group>"; };
+		B10202 /* StateHelpersTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateHelpersTests.swift; sourceTree = "<group>"; };
+		P10003 /* StickyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = StickyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -132,6 +145,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F10003 /* Test Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -139,6 +159,7 @@
 			isa = PBXGroup;
 			children = (
 				G10001 /* Sticky */,
+				G10012 /* StickyTests */,
 				G10099 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -170,6 +191,8 @@
 				B10003 /* AppState.swift */,
 				B10041 /* GlobalHotkeyManager.swift */,
 				B10070 /* Updater.swift */,
+				B10071 /* StickyWindows.swift */,
+				B10072 /* StickyLink.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -278,8 +301,20 @@
 			children = (
 				P10001 /* Sticky.app */,
 				P10002 /* Sticky iOS.app */,
+				P10003 /* StickyTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		G10012 /* StickyTests */ = {
+			isa = PBXGroup;
+			children = (
+				B10200 /* NotesFileTests.swift */,
+				B10201 /* StickyWindowsTests.swift */,
+				B10202 /* StateHelpersTests.swift */,
+				B10203 /* StickyLinkTests.swift */,
+			);
+			path = StickyTests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -319,7 +354,43 @@
 			productReference = P10002 /* Sticky iOS.app */;
 			productType = "com.apple.product-type.application";
 		};
+		T10003 /* StickyTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CL10004 /* Build configuration list for PBXNativeTarget "StickyTests" */;
+			buildPhases = (
+				S10003 /* Test Sources */,
+				F10003 /* Test Frameworks */,
+				R10003 /* Test Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				TD10001 /* PBXTargetDependency */,
+			);
+			name = StickyTests;
+			productName = StickyTests;
+			productReference = P10003 /* StickyTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
+
+/* Begin PBXContainerItemProxy section */
+		CIP10001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = PR10001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = T10001;
+			remoteInfo = Sticky;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		TD10001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = T10001 /* Sticky */;
+			targetProxy = CIP10001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXProject section */
 		PR10001 /* Project object */ = {
@@ -334,6 +405,10 @@
 					};
 					T10002 = {
 						CreatedOnToolsVersion = 15.0;
+					};
+					T10003 = {
+						CreatedOnToolsVersion = 15.0;
+						TestTargetID = T10001;
 					};
 				};
 			};
@@ -352,6 +427,7 @@
 			targets = (
 				T10001 /* Sticky */,
 				T10002 /* Sticky iOS */,
+				T10003 /* StickyTests */,
 			);
 		};
 /* End PBXProject section */
@@ -387,6 +463,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		R10003 /* Test Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -399,6 +482,8 @@
 				A10003 /* AppState.swift in Sources */,
 				A10041 /* GlobalHotkeyManager.swift in Sources */,
 				A10070 /* Updater.swift in Sources */,
+				A10071 /* StickyWindows.swift in Sources */,
+				A10072 /* StickyLink.swift in Sources */,
 				A10004 /* TodoItem.swift in Sources */,
 				A10005 /* StickyNote.swift in Sources */,
 				A10006 /* StickyColorTheme.swift in Sources */,
@@ -442,6 +527,17 @@
 				A10112 /* iOSNoteView.swift in iOS Sources */,
 				A10113 /* iOSTodoRow.swift in iOS Sources */,
 				A10114 /* iOSSettingsView.swift in iOS Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		S10003 /* Test Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10200 /* NotesFileTests.swift in Sources */,
+				A10201 /* StickyWindowsTests.swift in Sources */,
+				A10202 /* StateHelpersTests.swift in Sources */,
+				A10203 /* StickyLinkTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -567,7 +663,7 @@
 				CODE_SIGN_ENTITLEMENTS = Sticky/Sticky.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Sticky/Info.plist;
@@ -577,9 +673,11 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.3.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.stickytodos.app;
+				MARKETING_VERSION = 1.4.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.stickytodos.app.dev;
 				PRODUCT_NAME = Sticky;
+				STICKY_DISPLAY_NAME = "Sticky Dev";
+				STICKY_URL_SCHEME = "sticky-dev";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -593,7 +691,7 @@
 				CODE_SIGN_ENTITLEMENTS = Sticky/Sticky.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Sticky/Info.plist;
@@ -603,9 +701,11 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 1.3.0;
+				MARKETING_VERSION = 1.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.stickytodos.app;
 				PRODUCT_NAME = Sticky;
+				STICKY_DISPLAY_NAME = Sticky;
+				STICKY_URL_SCHEME = sticky;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -616,7 +716,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -629,7 +729,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.3.0;
+				MARKETING_VERSION = 1.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.stickytodos.app.ios";
 				PRODUCT_NAME = "Sticky iOS";
 				SDKROOT = iphoneos;
@@ -646,7 +746,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -659,7 +759,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.3.0;
+				MARKETING_VERSION = 1.4.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.stickytodos.app.ios";
 				PRODUCT_NAME = "Sticky iOS";
 				SDKROOT = iphoneos;
@@ -667,6 +767,40 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		BC10007 /* Test Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 4;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.4.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.stickytodos.app.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Sticky.app/Contents/MacOS/Sticky";
+			};
+			name = Debug;
+		};
+		BC10008 /* Test Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 4;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.4.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.stickytodos.app.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Sticky.app/Contents/MacOS/Sticky";
 			};
 			name = Release;
 		};
@@ -699,6 +833,15 @@
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
+		};
+		CL10004 /* Build configuration list for PBXNativeTarget "StickyTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BC10007 /* Test Debug */,
+				BC10008 /* Test Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
 

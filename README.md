@@ -68,14 +68,42 @@ Every sticky gets its own:
 
 ---
 
-## Add tasks without opening Sticky
+## Control Sticky from other apps
 
-Sticky has a `sticky://` URL scheme, so you can throw tasks at it from your launcher:
+Sticky has a `sticky://` URL scheme, so your launcher, scripts and other tools can add and change tasks:
 
 - **Raycast**: type "Add Sticky Task", pick a sticky, type the task. Setup is in [`raycast-sticky`](raycast-sticky).
 - **Alfred**: type `sticky buy milk` and pick which sticky it goes on. Type just `sticky`, pick a sticky, then pick a task to tick it off. Needs the Powerpack. Grab `Sticky.alfredworkflow` from the [latest release](https://github.com/harit-gillar/Sticky/releases/latest) and double-click it, or see [`alfred-sticky`](alfred-sticky).
 
-Either way, that sticky jumps to the front. Ticking off from Alfred plays the sticky's sound and confetti, the same as ticking it in the app.
+Adding a task brings that sticky to the front. Ticking one off plays the sticky's sound (and confetti, if the sticky is on screen), the same as ticking it in the app.
+
+### URL commands
+
+Every command needs `stickyID`, the sticky's ID from `~/Library/Application Support/Sticky/stickies.json`. Commands that change a task name it with **either**:
+
+- `itemID`: the task's ID (`taskID` works too), or
+- `text`: the task's exact text, ignoring case and spaces at either end.
+
+URL-encode the values (a space is `%20`).
+
+| Command | Does | Extra |
+| --- | --- | --- |
+| `sticky://add?stickyID=…&text=…` | Adds a task and brings the sticky to the front | |
+| `sticky://complete?stickyID=…&itemID=…` | Ticks a task off, with its sound and confetti | |
+| `sticky://uncomplete?stickyID=…&itemID=…` | Unticks a task | |
+| `sticky://delete?stickyID=…&itemID=…` | Deletes a task | |
+| `sticky://edit?stickyID=…&itemID=…&newText=…` | Changes a task's text | `newText` |
+
+When you use `text` and more than one task matches, `complete`, `delete` and `edit` act on the first open one. `delete` and `edit` fall back to the first ticked one if nothing open matches. `uncomplete` acts on the first ticked one.
+
+For example:
+
+```bash
+open -g "sticky://complete?stickyID=0D0EE65C-2FE6-433C-8455-21488194296B&text=buy%20milk"
+open -g "sticky://edit?stickyID=0D0EE65C-2FE6-433C-8455-21488194296B&text=buy%20milk&newText=buy%20oat%20milk"
+```
+
+Changes go through Sticky the same way a click does, so they're saved and show up straight away. Apart from `add`, the commands work quietly with Sticky in the background: nothing comes to the front, and `open -g` keeps it that way. If Sticky isn't running, the link opens it. A link that doesn't make sense (unknown command, wrong ID, no matching task, empty text) is ignored.
 
 ### Zapier
 Paste a webhook URL into Settings → Zapier Integration and every ticked-off task gets sent there, so it can carry on to Notion, Slack, Google Sheets, Todoist or wherever.
@@ -104,11 +132,18 @@ You'll need Xcode 15+ and macOS 14+. There are no third-party dependencies.
 ```bash
 git clone https://github.com/harit-gillar/Sticky.git
 cd Sticky
-mkdir -p "Sticky/Preview Content"   # Xcode expects it, git doesn't keep empty folders
 open Sticky.xcodeproj
 ```
 
-Hit `⌘R` to build and run.
+Hit `⌘R` to build and run, and `⌘U` to run the tests (or `xcodebuild test -scheme Sticky`).
+
+Debug builds run as **Sticky Dev**, a separate app beside your real Sticky. It has its own notes folder (`~/Library/Application Support/Sticky Dev`), its own settings, `sticky-dev://` links and `⌃⌥⇧S` to show or hide its stickies, so trying things out never touches your real notes. To point any build at another folder, launch it with `-StickyDataDirectory /some/folder`.
+
+Sticky logs what it's doing (windows opening and closing, saves, update checks). Watch it with:
+
+```bash
+log stream --level info --predicate 'subsystem == "com.stickytodos.app"'
+```
 
 There's also an early iPhone version in the project, and CloudKit sync code switched off behind a flag. Neither is finished, so don't expect much from them yet.
 

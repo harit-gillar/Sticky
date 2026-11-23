@@ -1,16 +1,41 @@
 import AppKit
+import os
 
 /// Checks GitHub Releases for a newer Sticky and installs it in place:
 /// download Sticky.zip, unzip, check it's really Sticky, then a small script
 /// swaps the app bundle once we've quit and relaunches it.
+///     idle ──check──▶ checking ──newer + "Install"──▶ downloading ──▶ installing ──▶ (quit, swap, relaunch)
+///       ▲                │                                │
+///       └── up to date, "Later", or any failure ──────────┘
 @MainActor
-final class Updater {
+final class Updater: ObservableObject {
     static let shared = Updater()
+
+    enum Phase: Equatable {
+        case idle
+        case checking
+        case downloading(version: String)
+        case installing
+
+        /// The Sticky menu item reads straight off the phase
+        var menuTitle: String {
+            switch self {
+            case .idle:                   return "Check for Updates…"
+            case .checking:               return "Checking for Updates…"
+            case .downloading(let v):     return "Downloading Sticky \(v)…"
+            case .installing:             return "Installing Update…"
+            }
+        }
+    }
+
+    @Published private(set) var phase: Phase = .idle {
+        didSet { log.info("phase: \(String(describing: self.phase), privacy: .public)") }
+    }
+    private let log = Logger(subsystem: "com.stickytodos.app", category: "updater")
 
     private let latestReleaseURL = URL(string: "https://api.github.com/repos/harit-gillar/Sticky/releases/latest")!
     private let releasesPageURL = URL(string: "https://github.com/harit-gillar/Sticky/releases")!
     private let lastCheckKey = "updater_lastCheck"
-    private var isBusy = false
 
     struct Release {
         let version: String
@@ -54,9 +79,11 @@ final class Updater {
     }
 
     private func check(userInitiated: Bool) async {
-        guard !isBusy else { return }
-        isBusy = true
-        defer { isBusy = false }
+        guard phase == .idle else { return }
+        phase = .checking
+        // Every way out of a check (up to date, Later, failure) lands back on
+        // idle; a successful install quits the app instead.
+        defer { phase = .idle }
 
         let release: Release
         do {
@@ -156,6 +183,7 @@ final class Updater {
             return
         }
 
+        phase = .downloading(version: release.version)
         do {
             let work = fm.temporaryDirectory.appendingPathComponent("StickyUpdate-\(UUID().uuidString)", isDirectory: true)
             try fm.createDirectory(at: work, withIntermediateDirectories: true)
@@ -175,10 +203,12 @@ final class Updater {
                   let newBundle = Bundle(url: newApp),
                   newBundle.bundleIdentifier == Bundle.main.bundleIdentifier else { throw UpdateError.notSticky }
 
+            phase = .installing
             try launchSwapScript(oldApp: appURL, newApp: newApp, work: work)
-            StickyStore.shared.saveToDisk()
+            StickyStore.shared.flushPendingSave()
             NSApp.terminate(nil)
         } catch {
+            log.error("update failed: \(error.localizedDescription, privacy: .public)")
             let alert = NSAlert()
             alert.messageText = "Update failed"
             alert.informativeText = "\(error.localizedDescription)\n\nYou can download it yourself from GitHub."

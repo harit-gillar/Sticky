@@ -1,42 +1,117 @@
 import Foundation
 import SwiftUI
+import os
+
+/// What we found when reading the notes file at launch. "No file yet" and
+/// "file we can't read" used to look the same (an empty list), so an
+/// unreadable file was silently replaced by the welcome notes.
+enum NotesFile {
+    case missing
+    case loaded([StickyNote])
+    case unreadable(Error)
+}
+
+/// Set when the notes file couldn't be read: the original was kept at
+/// `backupURL` and Sticky started over with the welcome notes.
+struct NotesLoadProblem {
+    let backupURL: URL?
+    let reason: String
+}
 
 @MainActor
 class StickyStore: ObservableObject {
     @Published var stickies: [StickyNote] = []
-    var isFirstLaunch: Bool = false
-    @Published var openAllTrigger: Int = 0
+    /// Non-nil after launch if the notes file was unreadable. The app shows it once.
+    @Published var loadProblem: NotesLoadProblem?
 
-    private let fileURL: URL
+    let fileURL: URL
     private var saveTask: Task<Void, Never>?
     private var dirtyIDs: Set<UUID> = []     // stickies queued for CloudKit push
+    /// True only when the notes file was unreadable and couldn't be backed up
+    private var savingBlocked = false
+    private let log = Logger(subsystem: "com.stickytodos.app", category: "persistence")
 
     static let shared = StickyStore()
 
-    init() {
+    /// Where notes live. Debug builds use their own folder so they never touch
+    /// real notes; `-StickyDataDirectory <path>` overrides both (handy for
+    /// tests, agents and trying things out).
+    nonisolated static var dataDirectory: URL {
+        if let override = UserDefaults.standard.string(forKey: "StickyDataDirectory"), !override.isEmpty {
+            return URL(fileURLWithPath: (override as NSString).expandingTildeInPath, isDirectory: true)
+        }
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let appDir = appSupport.appendingPathComponent("Sticky", isDirectory: true)
+#if DEBUG
+        return appSupport.appendingPathComponent("Sticky Dev", isDirectory: true)
+#else
+        return appSupport.appendingPathComponent("Sticky", isDirectory: true)
+#endif
+    }
 
-        if !FileManager.default.fileExists(atPath: appDir.path) {
-            try? FileManager.default.createDirectory(at: appDir, withIntermediateDirectories: true)
+    init(directory: URL = StickyStore.dataDirectory) {
+        if !FileManager.default.fileExists(atPath: directory.path) {
+            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         }
 
-        self.fileURL = appDir.appendingPathComponent("stickies.json")
+        self.fileURL = directory.appendingPathComponent("stickies.json")
 #if os(macOS)
         SandboxMigration.run(to: fileURL)
 #endif
-        self.stickies = loadFromDisk()
 
-        if stickies.isEmpty {
+        switch Self.readNotes(at: fileURL) {
+        case .loaded(let notes) where !notes.isEmpty:
+            stickies = notes
+            log.info("Loaded \(notes.count, privacy: .public) stickies from \(self.fileURL.path, privacy: .public)")
+        case .loaded, .missing:
+            log.info("No stickies yet; creating welcome notes")
             createWelcomeNotes()
             saveToDisk()
-            isFirstLaunch = true
+        case .unreadable(let error):
+            // Keep the original before writing anything over it
+            let backup = Self.preserveUnreadableFile(at: fileURL)
+            loadProblem = NotesLoadProblem(backupURL: backup, reason: error.localizedDescription)
+            log.error("Notes file unreadable (\(error.localizedDescription, privacy: .public)); kept a copy at \(backup?.path ?? "nowhere", privacy: .public)")
+            createWelcomeNotes()
+            if backup != nil {
+                saveToDisk()
+            } else {
+                savingBlocked = true
+            }
         }
 
         // Kick off background CloudKit sync after a short delay
         Task {
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             await syncFromCloud()
+        }
+    }
+
+    /// Reads the notes file without side effects, telling "not there" apart
+    /// from "there but unreadable".
+    nonisolated static func readNotes(at url: URL) -> NotesFile {
+        guard FileManager.default.fileExists(atPath: url.path) else { return .missing }
+        do {
+            let data = try Data(contentsOf: url)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            return .loaded(try decoder.decode(StickyFileFormat.self, from: data).stickies)
+        } catch {
+            return .unreadable(error)
+        }
+    }
+
+    /// Copies an unreadable notes file next to itself with a timestamp, so
+    /// nothing is lost when Sticky starts over. Returns nil if the copy failed,
+    /// in which case the original must not be overwritten.
+    nonisolated static func preserveUnreadableFile(at url: URL) -> URL? {
+        let stamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "-")
+        let backup = url.deletingLastPathComponent()
+            .appendingPathComponent("stickies.unreadable-\(stamp).json")
+        do {
+            try FileManager.default.copyItem(at: url, to: backup)
+            return backup
+        } catch {
+            return nil
         }
     }
 
@@ -229,6 +304,7 @@ class StickyStore: ObservableObject {
             try? await Task.sleep(nanoseconds: 300_000_000) // 0.3s debounce
             guard !Task.isCancelled else { return }
             saveToDisk()
+            saveTask = nil
             await flushDirtyToCloud()
         }
     }
@@ -243,20 +319,31 @@ class StickyStore: ObservableObject {
     }
 
     func saveToDisk() {
+        // An unreadable file we couldn't back up stays untouched
+        guard !savingBlocked else {
+            log.error("Not saving: the unreadable notes file couldn't be backed up")
+            return
+        }
         let format  = StickyFileFormat(stickies: stickies)
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting     = [.prettyPrinted, .sortedKeys]
         guard let data = try? encoder.encode(format) else { return }
-        try? data.write(to: fileURL, options: .atomic)
+        do {
+            try data.write(to: fileURL, options: .atomic)
+        } catch {
+            log.error("Saving notes failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
-    private func loadFromDisk() -> [StickyNote] {
-        guard let data = try? Data(contentsOf: fileURL) else { return [] }
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        guard let format = try? decoder.decode(StickyFileFormat.self, from: data) else { return [] }
-        return format.stickies
+    /// Writes any change still waiting on the save debounce. Call before quitting,
+    /// or an edit made in the last 0.3 s is lost.
+    func flushPendingSave() {
+        guard let pending = saveTask else { return }
+        pending.cancel()
+        saveTask = nil
+        saveToDisk()
+        log.info("Flushed pending save")
     }
 }
 
@@ -272,6 +359,10 @@ enum SandboxMigration {
         .appendingPathComponent("Library/Containers/com.stickytodos.app/Data/Library", isDirectory: true)
 
     static func run(to notesURL: URL) {
+        // Only the real app at its normal location had a sandbox container;
+        // dev builds, tests and -StickyDataDirectory runs start clean.
+        guard Bundle.main.bundleIdentifier == "com.stickytodos.app",
+              UserDefaults.standard.string(forKey: "StickyDataDirectory") == nil else { return }
         let fm = FileManager.default
 
         let oldNotes = container.appendingPathComponent("Application Support/Sticky/stickies.json")

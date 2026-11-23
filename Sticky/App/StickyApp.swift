@@ -4,6 +4,7 @@ import SwiftUI
 struct StickyApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var store = StickyStore.shared
+    @StateObject private var updater = Updater.shared
     @Environment(\.openWindow) var openWindow
 
     var body: some Scene {
@@ -11,30 +12,21 @@ struct StickyApp: App {
         WindowGroup(id: "sticky", for: UUID.self) { $stickyID in
             StickyWindowRoot(stickyID: $stickyID)
                 .environmentObject(store)
-                .onReceive(NotificationCenter.default.publisher(for: .openStickyByID)) { notif in
-                    guard let id = notif.userInfo?["stickyID"] as? UUID,
-                          let nonce = notif.userInfo?["nonce"] as? UUID,
-                          URLNotificationDeduper.shared.shouldProcess(nonce) else { return }
-                    // Raise if already open; only create a window when none exists.
-                    if !StickyWindowRegistry.shared.raiseIfPresent(id: id) {
-                        openWindow(id: "sticky", value: id)
-                    }
-                }
         }
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentMinSize)
         .defaultSize(width: 280, height: 400)
         .commands {
             CommandGroup(after: .appInfo) {
-                Button("Check for Updates…") {
-                    Updater.shared.checkNow()
+                Button(updater.phase.menuTitle) {
+                    updater.checkNow()
                 }
+                .disabled(updater.phase != .idle)
             }
 
             CommandGroup(replacing: .newItem) {
                 Button("New Sticky Note") {
-                    let note = store.createSticky()
-                    openWindow(id: "sticky", value: note.id)
+                    StickyWindows.shared.show(store.createSticky().id)
                 }
                 .keyboardShortcut("n", modifiers: .command)
             }
@@ -43,12 +35,12 @@ struct StickyApp: App {
                 ForEach(store.stickies) { sticky in
                     Menu("\(sticky.title) — \(sticky.remainingCount)/\(sticky.totalCount)") {
                         Button("Open") {
-                            openWindow(id: "sticky", value: sticky.id)
+                            StickyWindows.shared.show(sticky.id)
                         }
                         Button("Delete") {
                             // Close first, or the orphaned window falls back to
                             // showing another sticky
-                            StickyWindowRegistry.shared.close(id: sticky.id)
+                            StickyWindows.shared.close(id: sticky.id)
                             store.deleteSticky(id: sticky.id)
                         }
                     }
@@ -57,8 +49,7 @@ struct StickyApp: App {
                 Divider()
 
                 Button("New Sticky Note") {
-                    let note = store.createSticky()
-                    openWindow(id: "sticky", value: note.id)
+                    StickyWindows.shared.show(store.createSticky().id)
                 }
 
                 Button("Open All Notes") {
@@ -209,6 +200,7 @@ extension StickyApp {
         guard response == .alertFirstButtonReturn else { return }
 
         // Close all sticky windows (skip internal windows like the confetti overlay)
+        StickyWindows.shared.closeAll()
         for window in NSApplication.shared.windows where window.styleMask.contains(.titled) {
             window.close()
         }
@@ -216,16 +208,8 @@ extension StickyApp {
         // Delete all stickies and recreate welcome notes
         store.resetToFirstLaunch()
 
-        // Open the first sticky
-        if let first = store.stickies.first {
-            openWindow(id: "sticky", value: first.id)
-            // Open remaining stickies
-            for (index, sticky) in store.stickies.dropFirst().enumerated() {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3 + Double(index) * 0.2) {
-                    self.openWindow(id: "sticky", value: sticky.id)
-                }
-            }
-        }
+        // Open the welcome stickies (none of them has a window yet)
+        StickyWindows.shared.showAll(store.stickies.map(\.id), stagger: 0.2)
     }
 
     func openAllNotesSideBySide() {
@@ -251,16 +235,13 @@ extension StickyApp {
             )
 
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.15) {
-                // openWindow duplicates already-open values; move those instead
-                if StickyWindowRegistry.shared.raiseIfPresent(id: sticky.id) {
-                    if let note = store.sticky(for: sticky.id), let frame = note.windowFrame {
-                        StickyWindowRegistry.shared.move(
-                            id: sticky.id, to: frame.cgRect, keepHeight: note.isMinimized
-                        )
-                    }
-                } else {
-                    self.openWindow(id: "sticky", value: sticky.id)
+                // Open windows move into line; closed ones open there already
+                let windows = StickyWindows.shared
+                if windows.state(of: sticky.id) == .open,
+                   let note = store.sticky(for: sticky.id), let frame = note.windowFrame {
+                    windows.move(id: sticky.id, to: frame.cgRect, keepHeight: note.isMinimized)
                 }
+                windows.show(sticky.id)
             }
         }
     }
@@ -272,6 +253,7 @@ extension StickyApp {
 struct StickyWindowRoot: View {
     @Binding var stickyID: UUID?
     @EnvironmentObject var store: StickyStore
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         Group {
@@ -285,13 +267,16 @@ struct StickyWindowRoot: View {
                 })
             }
         }
+        // Hand openWindow to the coordinator so links and menus can open
+        // stickies even when no window is showing
+        .onAppear { StickyWindows.shared.opener = openWindow }
     }
 
     /// Shows a sticky that isn't open in another window. If every sticky is
     /// already showing, closes this window rather than duplicating one.
     private func adoptStickyOrClose(_ window: NSWindow) {
         if let id = stickyID, store.sticky(for: id) != nil { return }
-        let registry = StickyWindowRegistry.shared
+        let registry = StickyWindows.shared
 
         if let free = store.stickies.first(where: { !registry.isOpen(id: $0.id) }) {
             registry.claim(free.id)

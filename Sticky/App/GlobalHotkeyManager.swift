@@ -15,10 +15,15 @@ class GlobalHotkeyManager {
             eventClass: OSType(kEventClassKeyboard),
             eventKind: UInt32(kEventHotKeyPressed)
         )
-        // ⌥⇧S
+        // ⌥⇧S, or ⌃⌥⇧S in Debug so a dev build can run beside the real app
+#if DEBUG
+        let modifiers = optionKey | shiftKey | controlKey
+#else
+        let modifiers = optionKey | shiftKey
+#endif
         RegisterEventHotKey(
             UInt32(kVK_ANSI_S),
-            UInt32(optionKey | shiftKey),
+            UInt32(modifiers),
             hotKeyID,
             GetApplicationEventTarget(),
             0,

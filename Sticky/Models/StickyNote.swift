@@ -117,6 +117,16 @@ struct StickyNote: Identifiable, Codable, Hashable, Equatable {
         return true
     }
 
+    /// Unticks a task. Returns false if the task is missing or not ticked.
+    @discardableResult
+    mutating func uncompleteTask(id: UUID) -> Bool {
+        guard let index = tasks.firstIndex(where: { $0.id == id }),
+              tasks[index].isCompleted else { return false }
+        tasks[index].isCompleted = false
+        lastModifiedAt = Date()
+        return true
+    }
+
     /// When auto-sort is on: incomplete tasks first, completed tasks last
     mutating func applyAutoSort() {
         guard autoSortCompleted else { return }

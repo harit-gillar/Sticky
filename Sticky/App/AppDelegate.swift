@@ -5,16 +5,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var windowObserver: Any?
     private var configuredWindows: Set<ObjectIdentifier> = []
 
+    /// True while the app is only hosting unit tests: skip launch side effects
+    static let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        guard !Self.isRunningTests else { return }
+
         // Pre-warm confetti window and sound so first trigger is instant
         ConfettiWindowController.shared.warmUp()
         _ = SoundManager.shared  // Force singleton init, which pre-loads the sound
         GlobalHotkeyManager.shared.register()
 
-
-        // Tell any open StickyNoteView to open remaining stickies
+        // SwiftUI opens (or restores) the first window itself; once it's up,
+        // open every other sticky. show() skips the ones already open.
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            StickyStore.shared.openAllTrigger += 1
+            StickyWindows.shared.showAll(StickyStore.shared.stickies.map(\.id))
+        }
+
+        // If the notes file couldn't be read, say so once, after the stickies are up
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            if let problem = StickyStore.shared.loadProblem {
+                Self.showLoadProblem(problem)
+                StickyStore.shared.loadProblem = nil
+            }
         }
 
         // Once the stickies are up, quietly look for a new version (daily)
@@ -47,6 +60,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return false // Keep alive for menu bar
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        // Don't lose an edit still waiting on the save debounce
+        MainActor.assumeIsolated { StickyStore.shared.flushPendingSave() }
+    }
+
+    @MainActor
+    private static func showLoadProblem(_ problem: NotesLoadProblem) {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Sticky couldn't read your notes"
+        if let backup = problem.backupURL {
+            alert.informativeText = "The file was kept as \(backup.lastPathComponent), and Sticky has started with fresh notes.\n\n\(problem.reason)"
+            alert.addButton(withTitle: "Show in Finder")
+            alert.addButton(withTitle: "OK")
+            if alert.runModal() == .alertFirstButtonReturn {
+                NSWorkspace.shared.activateFileViewerSelecting([backup])
+            }
+        } else {
+            alert.informativeText = "Sticky couldn't make a copy of the file either, so it won't save over it. Quit Sticky and move stickies.json somewhere safe.\n\n\(problem.reason)"
+            alert.runModal()
+        }
+    }
+
     // MARK: - URL Scheme Handling (e.g. from Raycast)
 
     func application(_ application: NSApplication, open urls: [URL]) {
@@ -58,84 +95,39 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// sticky://add?stickyID=…&text=…       — append a task
-    /// sticky://complete?stickyID=…&taskID=… — tick a task off (never unticks)
+    /// The app's link scheme: `sticky`, or `sticky-dev` for Debug builds so a
+    /// dev copy never answers links meant for the real app.
+    static let urlScheme: String = {
+        let types = Bundle.main.object(forInfoDictionaryKey: "CFBundleURLTypes") as? [[String: Any]]
+        return (types?.first?["CFBundleURLSchemes"] as? [String])?.first ?? "sticky"
+    }()
+
+    /// Handles sticky:// links (see StickyLink for the commands). Every change
+    /// goes through StickyStore, so it saves and syncs like a click. Only
+    /// `add` brings Sticky forward; the rest work quietly in the background.
+    /// Bad links are ignored.
     @MainActor
     private func handleIncomingURL(_ url: URL) {
-        guard url.scheme == "sticky" else { return }
+        guard let link = StickyLink(url: url, scheme: Self.urlScheme),
+              var sticky = StickyStore.shared.sticky(for: link.stickyID) else { return }
+        guard let change = link.apply(to: &sticky) else { return }
+        StickyStore.shared.updateSticky(sticky)
 
-        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-        guard let items = components?.queryItems else { return }
-
-        var stickyID: UUID?
-        var taskID: UUID?
-        var text: String?
-        for item in items {
-            if item.name == "stickyID", let v = item.value { stickyID = UUID(uuidString: v) }
-            if item.name == "taskID",   let v = item.value { taskID = UUID(uuidString: v) }
-            if item.name == "text",     let v = item.value { text = v }
-        }
-
-        guard let id = stickyID,
-              var sticky = StickyStore.shared.sticky(for: id) else { return }
-
-        switch url.host {
-        case "add":
-            guard let t = text,
-                  !t.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-
-            // Add task and persist (this also schedules CloudKit push)
-            sticky.addTask(title: t)
-            StickyStore.shared.updateSticky(sticky)
-            Task { @MainActor in _ = await self.raiseSticky(id: id) }
-
-        case "complete":
-            guard let tid = taskID, sticky.completeTask(id: tid) else { return }
-            let completed = sticky
-            sticky.applyAutoSort()
-            StickyStore.shared.updateSticky(sticky)
-
-            // Celebrate once the window is up so confetti lands on it
-            Task { @MainActor in
-                let frame = await self.raiseSticky(id: id)
-                TaskCompletionEffects.play(note: completed, taskID: tid, windowFrame: frame)
-            }
-
-        default:
-            return
+        switch change {
+        case .added:
+            NSApp.activate(ignoringOtherApps: true)
+            StickyWindows.shared.show(link.stickyID)
+        case .completed(let taskID):
+            // Sound and Zapier like a click; confetti only if the sticky is on screen
+            TaskCompletionEffects.play(
+                note: sticky,
+                taskID: taskID,
+                windowFrame: StickyWindows.shared.visibleFrame(for: link.stickyID)
+            )
+        case .uncompleted, .deleted, .edited:
+            break
         }
     }
-
-    /// Brings a sticky's window to the front and returns its frame, or nil if
-    /// no window turned up.
-    @MainActor
-    private func raiseSticky(id: UUID) async -> NSRect? {
-        NSApp.activate(ignoringOtherApps: true)
-
-        // If a window for this sticky is already open, raise it directly via
-        // AppKit. Only fall back to SwiftUI's openWindow when no window exists,
-        // since openWindow has been observed to create duplicates for already-
-        // open values.
-        if StickyWindowRegistry.shared.raiseIfPresent(id: id) {
-            return StickyWindowRegistry.shared.frame(for: id)
-        }
-
-        // Registry may be empty if the app is cold-launching (openAllTrigger
-        // hasn't fired yet). Retry once after a delay; only then fall back to
-        // openWindow.
-        try? await Task.sleep(nanoseconds: 2_500_000_000)
-        if StickyWindowRegistry.shared.raiseIfPresent(id: id) {
-            return StickyWindowRegistry.shared.frame(for: id)
-        }
-        NotificationCenter.default.post(
-            name: .openStickyByID,
-            object: nil,
-            userInfo: ["stickyID": id, "nonce": UUID()]
-        )
-        try? await Task.sleep(nanoseconds: 600_000_000)
-        return StickyWindowRegistry.shared.frame(for: id)
-    }
-
 
     private func configureStickyWindow(_ window: NSWindow) {
         let windowID = ObjectIdentifier(window)
@@ -171,134 +163,5 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             guard let closedWindow = notification.object as? NSWindow else { return }
             self?.configuredWindows.remove(ObjectIdentifier(closedWindow))
         }
-    }
-}
-
-// MARK: - Notification Names
-
-extension Notification.Name {
-    static let openStickyByID = Notification.Name("OpenStickyByID")
-}
-
-/// Ensures only one `.onReceive` handler reacts per posted notification.
-/// Multiple `StickyWindowRoot` views are alive when several stickies are open;
-/// each receives every notification. We pin acting on it to the first handler
-/// that grabs the nonce.
-@MainActor
-final class URLNotificationDeduper {
-    static let shared = URLNotificationDeduper()
-    private var processed: Set<UUID> = []
-
-    func shouldProcess(_ nonce: UUID) -> Bool {
-        if processed.contains(nonce) { return false }
-        processed.insert(nonce)
-        // Keep the set bounded; we never need more than the last few
-        if processed.count > 64 { processed.removeAll() }
-        return true
-    }
-}
-
-/// Tracks live NSWindow instances by their sticky UUID so AppDelegate can
-/// raise an existing window directly instead of asking SwiftUI's openWindow
-/// (which has been observed to create duplicates for already-open values).
-@MainActor
-final class StickyWindowRegistry {
-    static let shared = StickyWindowRegistry()
-
-    private final class WeakBox {
-        weak var window: NSWindow?
-        init(_ w: NSWindow) { self.window = w }
-    }
-
-    private var registry: [UUID: WeakBox] = [:]
-    /// Ids handed to a window that hasn't registered yet, so two windows
-    /// adopting a sticky in the same pass can't pick the same one.
-    private var claimed: Set<UUID> = []
-    private var closeObservers: [ObjectIdentifier: Any] = [:]
-
-    /// Returns false if another window already shows this sticky; the caller
-    /// should close `window` instead of keeping a duplicate.
-    @discardableResult
-    func register(_ window: NSWindow, for id: UUID) -> Bool {
-        if let existing = registry[id]?.window, existing !== window { return false }
-
-        // A window can be re-pointed at another sticky; drop its old entry
-        registry = registry.filter { $0.value.window != nil && $0.value.window !== window }
-        registry[id] = WeakBox(window)
-        claimed.remove(id)
-
-        // Closed windows can outlive close(), so forget them explicitly
-        let key = ObjectIdentifier(window)
-        guard closeObservers[key] == nil else { return true }
-        closeObservers[key] = NotificationCenter.default.addObserver(
-            forName: NSWindow.willCloseNotification,
-            object: window,
-            queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self else { return }
-                self.registry = self.registry.filter { $0.value.window !== window }
-                if let observer = self.closeObservers.removeValue(forKey: key) {
-                    NotificationCenter.default.removeObserver(observer)
-                }
-            }
-        }
-        return true
-    }
-
-    func claim(_ id: UUID) {
-        claimed.insert(id)
-    }
-
-    /// True if a live window for this id is currently open (or about to be).
-    func isOpen(id: UUID) -> Bool {
-        registry = registry.filter { $0.value.window != nil }
-        return registry[id]?.window != nil || claimed.contains(id)
-    }
-
-    /// Closes the window showing this sticky, if any.
-    func close(id: UUID) {
-        registry[id]?.window?.close()
-    }
-
-    /// Moves an open window to `frame`. A minimised sticky keeps its current
-    /// height and lines its top edge up with the frame's.
-    func move(id: UUID, to frame: CGRect, keepHeight: Bool) {
-        guard let window = registry[id]?.window else { return }
-        var target = frame
-        if keepHeight {
-            target.size.height = window.frame.height
-            target.origin.y = frame.maxY - window.frame.height
-        }
-        window.setFrame(target, display: true, animate: false)
-    }
-
-    /// Screen frame of the live window for this id, if one is open.
-    func frame(for id: UUID) -> NSRect? {
-        registry[id]?.window?.frame
-    }
-
-    /// Returns true if a live window for this id was raised. Cleans up nil
-    /// entries as a side-effect.
-    func raiseIfPresent(id: UUID) -> Bool {
-        registry = registry.filter { $0.value.window != nil }
-        guard let window = registry[id]?.window else { return false }
-        window.makeKeyAndOrderFront(nil)
-        return true
-    }
-}
-
-/// Ensures the launch-time "open all stickies" routine runs only once per
-/// trigger increment. Multiple StickyNoteViews observe `openAllTrigger`; without
-/// this, each one would try to open every other sticky, duplicating windows.
-@MainActor
-final class OpenAllCoordinator {
-    static let shared = OpenAllCoordinator()
-    private var lastHandled = 0
-
-    func shouldHandle(_ trigger: Int) -> Bool {
-        guard trigger > lastHandled else { return false }
-        lastHandled = trigger
-        return true
     }
 }

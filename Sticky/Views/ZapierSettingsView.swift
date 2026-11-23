@@ -8,8 +8,14 @@ struct ZapierSettingsView: View {
     @State private var taskCreatedURL: String
     @State private var taskDeletedURL: String
 
-    @State private var testingURL: String?
-    @State private var testResults: [String: Bool] = [:]
+    /// Per-field result of the Test button. Editing a URL resets it, so a
+    /// result always belongs to the URL that's showing.
+    enum WebhookTest: Equatable {
+        case untested, testing, passed, failed
+    }
+    @State private var tests: [String: WebhookTest] = [:]
+
+    private var isTestingAny: Bool { tests.values.contains(.testing) }
 
     private let service = ZapierWebhookService.shared
 
@@ -100,37 +106,41 @@ struct ZapierSettingsView: View {
                 Button(action: {
                     testWebhook(urlString: url.wrappedValue, key: key)
                 }) {
-                    if testingURL == key {
+                    switch tests[key] ?? .untested {
+                    case .testing:
                         ProgressView()
                             .scaleEffect(0.6)
                             .frame(width: 50)
-                    } else if let result = testResults[key] {
+                    case .passed, .failed:
+                        let passed = tests[key] == .passed
                         HStack(spacing: 2) {
-                            Image(systemName: result ? "checkmark.circle.fill" : "xmark.circle.fill")
-                                .foregroundStyle(result ? .green : .red)
-                            Text(result ? "OK" : "Fail")
+                            Image(systemName: passed ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .foregroundStyle(passed ? .green : .red)
+                            Text(passed ? "OK" : "Fail")
                                 .font(.caption)
                         }
                         .frame(width: 50)
-                    } else {
+                    case .untested:
                         Text("Test")
                             .frame(width: 50)
                     }
                 }
-                .disabled(url.wrappedValue.isEmpty || testingURL != nil)
+                .disabled(url.wrappedValue.isEmpty || isTestingAny)
+            }
+            .onChange(of: url.wrappedValue) { _, _ in
+                // An old OK/Fail doesn't describe a URL you've since changed
+                if tests[key] != .testing { tests[key] = .untested }
             }
         }
     }
 
     private func testWebhook(urlString: String, key: String) {
-        testingURL = key
-        testResults.removeValue(forKey: key)
+        tests[key] = .testing
 
         Task {
-            let result = await service.testWebhook(urlString: urlString)
+            let passed = await service.testWebhook(urlString: urlString)
             await MainActor.run {
-                testResults[key] = result
-                testingURL = nil
+                tests[key] = passed ? .passed : .failed
             }
         }
     }
